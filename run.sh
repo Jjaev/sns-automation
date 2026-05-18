@@ -1,6 +1,6 @@
 #!/bin/bash
 # run.sh — SNS Automation 실행/관리 스크립트
-# 사용법: ./run.sh {start|stop|status|logs|dry-run|health|env|cron-install|cron-uninstall}
+# 사용법: ./run.sh {start|stop|status|logs|dry-run|health|env|cron-install|cron-uninstall|sync-cms}
 
 DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$DIR"
@@ -334,6 +334,14 @@ PLIST
     rm -f .daemon.pid .pid
     ok "Daemon cron removed"
     ;;
+  sync-cms)
+    echo ""
+    echo "══════════════════════════════════════"
+    echo "   Notion CMS → Supabase Sync"
+    echo "══════════════════════════════════════"
+    echo ""
+    node src/sync-cms.js
+    ;;
   *)
     echo "SNS Automation — 관리 스크립트"
     echo ""
@@ -349,10 +357,11 @@ PLIST
     echo "  cron-install     launchd 등록 (KeepAlive + 30m daemon)"
     echo "  cron-uninstall   launchd 제거"
     echo ""
-    echo "  health           전체 시스템 건강진단"
-    echo "  status-report    🎯 목표 진행상황 리포트"
-    echo "  goal             goal/plan.md 요약"
-    echo "  env              환경변수 현황"
-    echo "  logs [date]      실시간 로그 (예: logs 2026-05-18)"
+  echo "  sync-cms         Notion CMS → Supabase 동기화"
+  echo "  health           전체 시스템 건강진단"
+  echo "  status-report    🎯 목표 진행상황 리포트"
+  echo "  goal             goal/plan.md 요약"
+  echo "  env              환경변수 현황"
+  echo "  logs [date]      실시간 로그 (예: logs 2026-05-18)"
     ;;
 esac

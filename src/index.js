@@ -1,26 +1,10 @@
-// index.js — 메인 파이프라인: Notion → AI 캡션 → SNS 업로드
+// index.js — 메인 파이프라인: Notion → SNS 자동 업로드 (멀티플랫폼/멀티계정)
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { getReadyPosts, updateStatus, createPost } from './notion.js';
 import { generateCaption } from './caption.js';
 import { publishPhoto } from './instagram.js';
-
-// ============================================================
-// 계정 보호 정책 (저품질 방지)
-// ============================================================
-const DAILY_POST_LIMIT = 2;    // 하루 최대 게시물 수 (신규 계정 보호)
-const IMAGE_DOMAINS_BLOCKED = [ // 스톡사진 도메인 블록
-  'unsplash.com',
-  'pexels.com',
-  'pixabay.com',
-  'shutterstock.com',
-  'gettyimages.com',
-  'istockphoto.com',
-  '123rf.com',
-  'freepik.com',
-  'stock.adobe.com',
-];
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const LOG_DIR = path.join(__dirname, '..', 'logs');
@@ -36,95 +20,35 @@ function log(message, type = 'INFO') {
   fs.appendFileSync(logFile, line + '\n', 'utf-8');
 }
 
-// ============================================================
-// 인스타그램 토큰 만료일 (2026-07-16, 약 59일)
-// ============================================================
-const TOKEN_EXPIRY = new Date('2026-07-16T00:00:00Z');
-
 /**
- * 토큰 만료 체크
+ * 플랫폼별로 publish 함수 라우팅
+ * 새 플랫폼 추가: 여기만 건드리면 됨
  */
-function checkTokenExpiry() {
-  const now = new Date();
-  const daysLeft = Math.floor((TOKEN_EXPIRY - now) / (1000 * 60 * 60 * 24));
-  if (daysLeft <= 0) {
-    log('🚨 Instagram token EXPIRED! Update required.', 'ERROR');
-    return false;
-  }
-  if (daysLeft <= 14) {
-    log(`⚠️ Instagram token expires in ${daysLeft} days! Renew soon.`, 'WARN');
-  } else {
-    log(`Instagram token valid: ${daysLeft} days remaining`);
-  }
-  return true;
-}
-
-/**
- * publish 재시도 (일시적 장애 대비, 최대 1회)
- */
-async function publishWithRetry(post, caption) {
-  const MAX_RETRIES = 1;
-  for (let attempt = 1; attempt <= MAX_RETRIES + 1; attempt++) {
-    try {
-      if (post.platform === 'Instagram') {
-        const mediaId = await publishPhoto({ caption, imageUrl: post.imageUrl });
-        return { mediaId, attempt };
-      }
-      return { mediaId: null, attempt }; // 미지원 플랫폼
-    } catch (e) {
-      if (attempt <= MAX_RETRIES) {
-        log(`Retry ${attempt}/${MAX_RETRIES} for "${post.name}": ${e.message}`, 'WARN');
-        await new Promise(r => setTimeout(r, 3000)); // 3초 후 재시도
-      } else {
-        throw e; // 최종 실패
-      }
-    }
+async function publish(post, caption) {
+  switch (post.platform) {
+    case 'Instagram':
+      return await publishPhoto({
+        caption,
+        imageUrl: post.imageUrl,
+        account: post.account,   // ← 계정 정보 전달
+      });
+    // TODO: 다음 플랫폼들
+    // case 'LinkedIn':
+    //   return await publishLinkedin({ caption, account: post.account });
+    // case 'Twitter':
+    //   return await publishTwitter({ caption, account: post.account });
+    default:
+      throw new Error(`Platform "${post.platform}" not yet supported`);
   }
 }
 
 /**
- * 오늘 이미 게시한 횟수 확인 (로그 기반)
- */
-function getTodayPostCount() {
-  const today = new Date().toISOString().slice(0, 10);
-  const logFile = path.join(LOG_DIR, `${today}.log`);
-  if (!fs.existsSync(logFile)) return 0;
-  const content = fs.readFileSync(logFile, 'utf-8');
-  const matches = content.match(/Published to Instagram/g);
-  return matches ? matches.length : 0;
-}
-
-/**
- * 이미지 URL이 스톡사진인지 확인
- */
-function isStockImage(url) {
-  if (!url) return false;
-  try {
-    const hostname = new URL(url).hostname.toLowerCase();
-    return IMAGE_DOMAINS_BLOCKED.some(domain => hostname.includes(domain));
-  } catch {
-    return false;
-  }
-}
-
-/**
- * 1회 실행: Ready 포스트를 찾아서 업로드 (계정 보호 정책 적용)
+ * 1회 실행: Ready 포스트를 찾아서 업로드
  */
 export async function run() {
   log('=== SNS Automation Pipeline Started ===');
 
-  // 0. 토큰 만료 체크
-  const tokenValid = checkTokenExpiry();
-
-  // 1. 오늘 게시 가능 횟수 확인
-  const todayCount = getTodayPostCount();
-  if (todayCount >= DAILY_POST_LIMIT) {
-    log(`Daily post limit reached (${todayCount}/${DAILY_POST_LIMIT}). Skipping.`);
-    return;
-  }
-  log(`Today's post count: ${todayCount}/${DAILY_POST_LIMIT}`);
-
-  // 2. Notion에서 Ready 포스트 조회
+  // 1. Notion에서 Ready 포스트 조회
   let posts;
   try {
     posts = await getReadyPosts(process.env.NOTION_DATABASE_ID);
@@ -139,23 +63,12 @@ export async function run() {
     return;
   }
 
-  let posted = 0;
-  let failed = 0;
   for (const post of posts) {
-    // 하루 최대 게시량 초과 시 중단
-    if (posted + todayCount >= DAILY_POST_LIMIT) {
-      log(`Daily limit reached after ${posted} post(s). Stopping.`);
-      break;
-    }
+    log(`Processing: "${post.name}"`);
+    log(`  ├─ Platform: ${post.platform}`);
+    log(`  └─ Account:  ${post.account}`);
 
-    log(`Processing: "${post.name}" (${post.platform})`);
-
-    // 3. 스톡 이미지 체크 (경고만, 차단 안 함)
-    if (post.imageUrl && isStockImage(post.imageUrl)) {
-      log(`⚠️ Stock photo detected: ${post.imageUrl}. Replace with original image.`, 'WARN');
-    }
-
-    // 4. AI 캡션 생성 (키 없으면 Notion 캡션 그대로)
+    // 2. AI 캡션 생성
     let caption;
     try {
       caption = await generateCaption(post);
@@ -167,47 +80,32 @@ export async function run() {
     if (!caption && !post.imageUrl) {
       log(`Skipped "${post.name}": no caption and no image`, 'WARN');
       await updateStatus(post.id, 'Failed');
-      failed++;
       continue;
     }
 
-    // 5. Dry-run 모드
+    // 3. 업로드
     const isDryRun = process.env.DRY_RUN === 'true';
     if (isDryRun) {
-      log(`[DRY RUN] Would publish: ${post.name} | Platform: ${post.platform}`);
+      log(`[DRY RUN] Would publish: ${post.name}`);
+      log(`[DRY RUN] → ${post.platform} @ ${post.account}`);
       log(`[DRY RUN] Caption: ${caption?.slice(0, 60)}...`);
       await updateStatus(post.id, 'Ready');
       continue;
     }
 
-    // 6. 실제 업로드 (재시도 로직 포함)
-    if (tokenValid && post.platform === 'Instagram') {
-      try {
-        const { mediaId, attempt } = await publishWithRetry(post, caption);
-        log(`Published to Instagram! Media ID: ${mediaId} (retries: ${attempt - 1})`);
-        posted++;
-        await updateStatus(post.id, 'Posted');
-        log(`Status updated: "${post.name}" → Posted`);
-      } catch (e) {
-        log(`Upload failed after retry: "${post.name}" — ${e.message}`, 'ERROR');
-        await updateStatus(post.id, 'Failed');
-        failed++;
-      }
-    } else if (!tokenValid) {
-      log(`Skipped "${post.name}": token expired`, 'ERROR');
+    try {
+      const mediaId = await publish(post, caption);
+      log(`✅ Published! Media ID: ${mediaId}`);
+
+      await updateStatus(post.id, 'Posted');
+      log(`✅ Status updated: "${post.name}" → Posted`);
+    } catch (e) {
+      log(`❌ Upload failed: "${post.name}" — ${e.message}`, 'ERROR');
       await updateStatus(post.id, 'Failed');
-      failed++;
-    } else {
-      log(`Platform "${post.platform}" not yet supported`, 'WARN');
-      await updateStatus(post.id, 'Failed');
-      failed++;
     }
   }
 
-  // 7. 실행 요약
-  log('=== Pipeline Summary ===');
-  log(`Published: ${posted} | Failed: ${failed} | Remaining: ${posts.length - posted - failed}`);
-  log(`=== Pipeline Complete ===`);
+  log('=== Pipeline Complete ===');
 }
 
 // CLI 실행

@@ -1,0 +1,30 @@
+name: Track Stats
+on:
+  schedule:
+    - cron: '0 2 * * *'  # 11:00 KST daily
+  workflow_dispatch:
+
+jobs:
+  track:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Track stats
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
+          NOTION_CMS_DATABASE_ID: ${{ secrets.NOTION_CMS_DATABASE_ID }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: node src/track-stats.mjs > stats.json
+
+      - name: Upload stats artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: stats
+          path: stats.json
+          retention-days: 30

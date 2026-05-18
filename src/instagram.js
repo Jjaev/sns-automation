@@ -1,25 +1,64 @@
-// instagram.js — Instagram Graph API 업로드
+// instagram.js — Instagram Graph API 업로드 (멀티계정 + 하위호환)
 import fetch from 'node-fetch';
 
 const GRAPH_BASE = 'https://graph.facebook.com/v22.0';
 
 /**
+ * 계정명으로 토큰/비즈니스ID 조회
+ * 신규: INSTAGRAM_ACCOUNTS JSON에서 조회
+ * 구형: INSTAGRAM_ACCESS_TOKEN + INSTAGRAM_BUSINESS_ID (하위호환)
+ */
+function getAccountConfig(accountName) {
+  const newConfig = process.env.INSTAGRAM_ACCOUNTS;
+
+  // 신규 방식: JSON config
+  if (newConfig) {
+    let accounts;
+    try {
+      accounts = JSON.parse(newConfig);
+    } catch (e) {
+      throw new Error(`INSTAGRAM_ACCOUNTS JSON parse failed: ${e.message}`);
+    }
+
+    if (accountName) {
+      const config = accounts[accountName];
+      if (!config) {
+        throw new Error(
+          `Account "${accountName}" not found.\n` +
+          `Available: ${Object.keys(accounts).join(', ')}`
+        );
+      }
+      return config;
+    }
+
+    // 첫 번째 계정 반환 (accountName 없을 때)
+    const firstKey = Object.keys(accounts)[0];
+    if (firstKey) return accounts[firstKey];
+  }
+
+  // 구형 방식: 단일 계정 (하위호환)
+  const token = process.env.INSTAGRAM_ACCESS_TOKEN;
+  const businessId = process.env.INSTAGRAM_BUSINESS_ID;
+  if (token && businessId) {
+    return { token, businessId };
+  }
+
+  throw new Error(
+    'Instagram credentials not configured.\n' +
+    'Option 1: Set INSTAGRAM_ACCOUNTS={"account":{"token":"...","businessId":"..."}}\n' +
+    'Option 2: Set INSTAGRAM_ACCESS_TOKEN + INSTAGRAM_BUSINESS_ID (legacy)'
+  );
+}
+
+/**
  * Instagram에 이미지 포스트 생성 및 발행
- * @param {object} post - { caption, imageUrl }
+ * @param {object} post - { caption, imageUrl, account }
  * @returns {string} media_id
  */
 export async function publishPhoto(post) {
-  const { caption, imageUrl } = post;
-  const accessToken = process.env.INSTAGRAM_ACCESS_TOKEN;
-  const businessId = process.env.INSTAGRAM_BUSINESS_ID;
-
-  if (!accessToken || !businessId) {
-    throw new Error(
-      'Instagram credentials not configured.\n' +
-      'Set INSTAGRAM_ACCESS_TOKEN and INSTAGRAM_BUSINESS_ID in .env\n' +
-      'Facebook Dev Setting guide: https://developers.facebook.com/docs/instagram-api/getting-started'
-    );
-  }
+  const { caption, imageUrl, account } = post;
+  const config = getAccountConfig(account);
+  const { token: accessToken, businessId } = config;
 
   // Step 1: Create media container
   const createUrl = `${GRAPH_BASE}/${businessId}/media`;
@@ -55,24 +94,11 @@ export async function publishPhoto(post) {
   return publishData.id;
 }
 
-/**
- * Instagram Business 계정 ID 조회 (Facebook Page → Instagram)
- * @param {string} facebookPageId - Facebook Page ID
- */
-export async function getInstagramBusinessId(facebookPageId) {
-  const accessToken = process.env.INSTAGRAM_ACCESS_TOKEN;
+export async function getInstagramBusinessId(facebookPageId, accountName) {
+  const config = getAccountConfig(accountName);
   const res = await fetch(
-    `${GRAPH_BASE}/${facebookPageId}?fields=instagram_business_account&access_token=${accessToken}`
+    `${GRAPH_BASE}/${facebookPageId}?fields=instagram_business_account&access_token=${config.token}`
   );
   const data = await res.json();
   return data.instagram_business_account?.id || null;
-}
-
-// --- CLI 테스트 ---
-if (process.argv[1]?.includes('instagram') && process.argv.includes('--test')) {
-  if (!process.env.INSTAGRAM_ACCESS_TOKEN) {
-    console.log('Instagram not configured. Skipping test.');
-    process.exit(0);
-  }
-  console.log('Instagram module loaded. Ready to publish.');
 }

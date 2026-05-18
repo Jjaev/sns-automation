@@ -1,4 +1,6 @@
 // notion.js — Notion DB 읽기 / 상태 업데이트
+// 모든 플랫폼과 계정을 DB에서 관리
+
 import fetch from 'node-fetch';
 
 const BASE = 'https://api.notion.com/v1';
@@ -12,6 +14,7 @@ function headers() {
 
 /**
  * Notion DB에서 Status="Ready"이고 Scheduled At이 지난 포스트들 조회
+ * Account, Platform 필드 포함해서 리턴
  */
 export async function getReadyPosts(databaseId) {
   const now = new Date().toISOString();
@@ -19,7 +22,12 @@ export async function getReadyPosts(databaseId) {
     filter: {
       and: [
         { property: 'Status', select: { equals: 'Ready' } },
-        { property: 'Scheduled At', date: { on_or_before: now } },
+        {
+          or: [
+            { property: 'Scheduled At', date: { on_or_before: now } },
+            { property: 'Scheduled At', date: { is_empty: true } },
+          ],
+        },
       ],
     },
     sorts: [{ property: 'Scheduled At', direction: 'ascending' }],
@@ -44,6 +52,7 @@ export async function getReadyPosts(databaseId) {
     caption: page.properties.Caption?.rich_text?.[0]?.plain_text || '',
     imageUrl: page.properties['Image URL']?.url || '',
     platform: page.properties.Platform?.select?.name || 'Instagram',
+    account: page.properties.Account?.select?.name || '',
     scheduledAt: page.properties['Scheduled At']?.date?.start || '',
     status: page.properties.Status?.select?.name || '',
   }));
@@ -74,23 +83,32 @@ export async function updateStatus(pageId, status) {
 }
 
 /**
- * 새 페이지 생성 (수동 등록용)
+ * 새 페이지 생성 (수동 등록용, account 지원)
  */
-export async function createPost({ name, caption, imageUrl, platform = 'Instagram', scheduledAt, status = 'Idea' }) {
-  const body = {
-    parent: { database_id: process.env.NOTION_DATABASE_ID },
-    properties: {
-      Name: { title: [{ text: { content: name } }] },
-      Caption: { rich_text: [{ text: { content: caption || '' } }] },
-      'Image URL': { url: imageUrl || null },
-      Platform: { select: { name: platform } },
-      Status: { select: { name: status } },
-    },
+export async function createPost({ name, caption, imageUrl, platform = 'Instagram', account = '', scheduledAt, status = 'Idea' }) {
+  const properties = {
+    Name: { title: [{ text: { content: name } }] },
+    Caption: { rich_text: [{ text: { content: caption || '' } }] },
+    'Image URL': { url: imageUrl || null },
+    Platform: { select: { name: platform } },
+    Account: account ? { select: { name: account } } : undefined,
+    Status: { select: { name: status } },
   };
 
   if (scheduledAt) {
-    body.properties['Scheduled At'] = { date: { start: scheduledAt } };
+    properties['Scheduled At'] = { date: { start: scheduledAt } };
   }
+
+  // undefined 제거
+  const cleanProps = {};
+  for (const [k, v] of Object.entries(properties)) {
+    if (v !== undefined) cleanProps[k] = v;
+  }
+
+  const body = {
+    parent: { database_id: process.env.NOTION_DATABASE_ID },
+    properties: cleanProps,
+  };
 
   const res = await fetch(`${BASE}/pages`, {
     method: 'POST',
@@ -110,5 +128,5 @@ export async function createPost({ name, caption, imageUrl, platform = 'Instagra
 if (process.argv[1]?.includes('notion') && process.argv.includes('--test')) {
   const posts = await getReadyPosts(process.env.NOTION_DATABASE_ID);
   console.log(`Ready posts found: ${posts.length}`);
-  posts.forEach(p => console.log(`  - ${p.name} (${p.platform}) @ ${p.scheduledAt}`));
+  posts.forEach(p => console.log(`  - [${p.account}] ${p.name} (${p.platform}) @ ${p.scheduledAt}`));
 }

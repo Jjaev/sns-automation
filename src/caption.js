@@ -1,4 +1,4 @@
-// caption.js — AI 캡션 생성기 (DeepSeek API)
+// caption.js — AI 캡션 생성기 (멀티플랫폼 지원)
 // DeepSeek 키가 없으면 Notion Caption 필드를 그대로 사용 (0원)
 
 import fetch from 'node-fetch';
@@ -6,37 +6,46 @@ import fetch from 'node-fetch';
 const DEEPSEEK_ENDPOINT = 'https://api.deepseek.com/v1/chat/completions';
 
 /**
- * DeepSeek API로 캡션 생성
- * @param {object} post - { name, caption (optional), platform }
+ * 플랫폼별 톤/길이 가이드
+ */
+const PLATFORM_GUIDES = {
+  Instagram: 'Korean, casual & friendly, 100-200 chars, 3-5 hashtags, emojis OK',
+  LinkedIn: 'Korean, professional yet approachable, 200-500 chars, no hashtags, value-focused',
+  Twitter: 'Korean, concise & punchy, under 280 chars, 1-2 hashtags max',
+};
+
+/**
+ * DeepSeek API로 플랫폼별 캡션 생성
+ * @param {object} post - { name, caption, platform, account }
  * @returns {string} 생성된 캡션
  */
 export async function generateCaption(post) {
   const apiKey = process.env.DEEPSEEK_API_KEY;
 
-  // 키 없으면 원본 caption 반환 (Notion에 입력한 그대로)
+  // 키 없으면 원본 caption 반환
   if (!apiKey) {
     return post.caption || '';
   }
 
-  const prompt = `You are a Korean social media manager. Create an engaging Instagram caption for this post.
+  const guide = PLATFORM_GUIDES[post.platform] || PLATFORM_GUIDES.Instagram;
 
-Post title: "${post.name}"
+  const prompt = `You are a Korean social media manager. Create a caption for this post.
 
-Requirements:
-- Write in Korean
-- Include relevant hashtags (3-5)
-- Keep it concise (under 200 characters)
-- Engaging and friendly tone
-- Target platform: ${post.platform || 'Instagram'}
+Title: "${post.name}"
+Platform: ${post.platform || 'Instagram'}
+Account: ${post.account || 'general'}
 
-${post.caption ? `Reference content from client: ${post.caption}` : ''}
+Style guide:
+- ${guide}
+
+${post.caption ? `Client's reference: ${post.caption}` : ''}
 
 Caption:`;
 
   const body = {
     model: 'deepseek-chat',
     messages: [{ role: 'user', content: prompt }],
-    max_tokens: 300,
+    max_tokens: 400,
     temperature: 0.7,
   };
 

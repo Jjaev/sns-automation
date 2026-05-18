@@ -95,12 +95,19 @@ cd /Users/joe/.opencode/agents/frank/work/sns-automation
 ```
 sns-automation/
 ├── src/
-│   ├── index.js      ← 메인 파이프라인
-│   ├── notion.js     ← Notion DB 읽기/쓰기
-│   ├── instagram.js  ← Instagram 업로드
-│   └── caption.js    ← AI 캡션 생성 (DeepSeek)
-├── .env              ← 설정 (토큰 등)
-├── run.sh            ← 관리 스크립트
-├── .github/workflows/ ← GitHub Actions 스케줄러
-└── logs/             ← 실행 로그
+│   ├── index.js          ← 메인 파이프라인 (SNS 업로드)
+│   ├── notion.js         ← SNS Notion DB 읽기/쓰기
+│   ├── notion-cms.js     ← joeslife CMS Notion 연동
+│   ├── sync-cms.js       ← Notion CMS → Supabase 동기화
+│   ├── instagram.js      ← Instagram 업로드
+│   └── caption.js        ← AI 캡션 생성 (DeepSeek)
+├── .env                  ← 설정 (토큰 등)
+├── run.sh                ← 관리 스크립트 (health/sync/goal 등)
+├── .github/workflows/
+│   ├── schedule.yml      ← SNS 자동 업로드 (09/12/18시 KST)
+│   └── sync-cms.yml      ← CMS 동기화 (매 6시간)
+├── docs/
+│   ├── kmong-profile.md  ← 크몽 프로필 초안
+│   └── client-acquisition.md ← 고객 확보 전략
+└── logs/                 ← 실행 로그
 ```

@@ -1,0 +1,16 @@
+{
+  "name": "sns-automation",
+  "version": "1.0.0",
+  "description": "Notion → SNS 자동 업로드 파이프라인 (무료 운영)",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dry-run": "DRY_RUN=true node src/index.js",
+    "test-notion": "node src/notion.js --test",
+    "test-instagram": "node src/instagram.js --test"
+  },
+  "type": "module",
+  "dependencies": {
+    "node-fetch": "^3.3.2"
+  }
+}

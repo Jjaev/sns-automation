@@ -1,0 +1,28 @@
+# sync-cms.yml — Notion CMS → Supabase 동기화 (매 6시간)
+name: Sync CMS
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'   # 매 6시간
+  workflow_dispatch:         # 수동 실행도 가능
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - run: npm ci --omit=dev
+
+      - name: Sync Notion → Supabase
+        run: node src/sync-cms.js
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          NOTION_CMS_DATABASE_ID: ${{ secrets.NOTION_CMS_DATABASE_ID }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}

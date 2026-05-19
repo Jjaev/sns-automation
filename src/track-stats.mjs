@@ -60,11 +60,11 @@ async function main() {
     return s === 'Published' || s === 'Done';
   }).length;
 
-  // Supabase stats
-  const portfolioCount = await getSupabaseCount('portfolio_items');
-  // Try posts table too
+  // Supabase stats (gracefully handle missing tables)
+  let portfolioCount = 0;
+  try { portfolioCount = await getSupabaseCount('portfolio_items'); } catch (e) { console.warn('Supabase portfolio_items not available:', e.message); }
   let postCount = 0;
-  try { postCount = await getSupabaseCount('posts'); } catch {}
+  try { postCount = await getSupabaseCount('posts'); } catch (e) { console.warn('Supabase posts not available:', e.message); }
 
   // Instagram stats placeholder (manual update for now)
   const stats = {

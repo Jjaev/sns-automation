@@ -43,17 +43,17 @@ async function main() {
   console.log(`   Source DB: "${sourceDb.title?.[0]?.plain_text || 'SNS Automation'}"`);
   console.log(`   Properties: ${Object.keys(props).length}`);
   
-  // 2. Find the workspace/page to create the template under
-  // We'll create it under the user's workspace root
-  // First, let's find the parent page of the source DB
+  // 2. Create template as child of the known parent page
+  // (Notion internal integration can't create workspace-root pages)
+  const PARENT_PAGE_ID = '3658ab04-904c-81ea-b21f-f9a6c0765d5d'; // Woz Dashboard
   
-  // 3. Create the parent template page
-  console.log('\n📄 Creating template page...');
+  console.log('\n📄 Creating template page under parent...');
   const templatePage = await notion('POST', '/pages', {
-    parent: { type: 'workspace', workspace: true },
+    parent: { type: 'page_id', page_id: PARENT_PAGE_ID },
+    icon: { type: 'emoji', emoji: '📋' },
     properties: {
       title: {
-        title: [{ text: { content: '📋 SNS 자동화 시스템 템플릿' } }],
+        title: [{ text: { content: 'SNS 자동화 시스템 템플릿' } }],
       },
     },
     children: [

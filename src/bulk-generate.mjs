@@ -121,21 +121,28 @@ Return ONLY valid JSON. No markdown, no explanation.`;
   return JSON.parse(jsonMatch[0]);
 }
 
-// === 이미지 URL 생성 (Unsplash) ===
-async function getImageUrl(description) {
-  // 테마별 기본 이미지 (API 없이 사용 가능)
-  const defaults = [
-    'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800',
-    'https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=800',
-    'https://images.unsplash.com/photo-1553729459-afe8f3e41a5b?w=800',
-    'https://images.unsplash.com/photo-1432889821006-31494024baf9?w=800',
-    'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800',
-    'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=800',
-    'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=800',
-  ];
+// === 이미지 URL 생성 (Supabase SJ 워터마크 이미지 풀) ===
+const SUPABASE_IMAGES = [
+  'gpti-01_2026-05-15_usb-hub-wm.png',
+  'gpti-02_2026-05-15_blush-wm.png',
+  'gpti-03_2026-05-15_sandwich-wm.png',
+  'gpti-04_2026-05-16_open-sandwich-wm.png',
+  'gpti-05_2026-05-16_tomato-detail-wm.png',
+  'gpti-06_2026-05-16_sandwich-ad-wm.png',
+  'gpti-07_2026-05-16_otter-profile-wm.png',
+  'gpti-08_2026-05-16_kfood-ad-wm.png',
+  'gpti-09_2026-05-16_temple-poster-wm.png',
+  'gpti-10_2026-05-16_meal-ad-wm.png',
+  'gpti-11_2026-05-16_shop-sale-card-wm.png',
+  'gpti-12_2026-05-16_bakery-card-wm.png',
+  'gpti-13_2026-05-16_snack-card-wm.png',
+];
+const SUPABASE_BASE = 'https://ffkranwhkgcwhsgskjgs.supabase.co/storage/v1/object/public/sns-images';
 
-  // 기본 이미지 중 랜덤
-  return defaults[Math.floor(Math.random() * defaults.length)];
+async function getImageUrl(description) {
+  // SJ 워터마크 이미지 중 랜덤 선택 (고퀄 브랜드 이미지)
+  const file = SUPABASE_IMAGES[Math.floor(Math.random() * SUPABASE_IMAGES.length)];
+  return `${SUPABASE_BASE}/${file}`;
 }
 
 // === Notion DB에 등록 ===

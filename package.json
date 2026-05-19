@@ -8,7 +8,8 @@
     "dry-run": "DRY_RUN=true node src/index.js",
     "test-notion": "node src/notion.js --test",
     "test-instagram": "node src/instagram.js --test",
-    "sync-cms": "node src/sync-cms.js"
+    "sync-cms": "node src/sync-cms.js",
+    "bulk-gen": "node src/bulk-generate.mjs --count=20"
   },
   "type": "module",
   "dependencies": {

@@ -104,7 +104,7 @@ async function main() {
         type: 'callout',
         callout: {
           rich_text: [
-            { text: { content: '💡 ', type: 'text' } },
+            { text: { content: '💡 ' } },
             { text: { content: '이 페이지를 통째로 복제한 후, 가이드를 따라 GitHub Actions + Instagram 연동을 설정하세요.' } },
           ],
           color: 'blue_background',
@@ -155,12 +155,7 @@ async function main() {
     }
   }
 
-  const templateDb = await notion('PATCH', `/databases/${SOURCE_DB}`, {}).catch(() => null);
-  // Actually we need to CREATE a new database, not PATCH
-  // Notion API doesn't support creating a database inside a page directly.
-  // Need to use the parent page ID as the parent.
-  
-  // The correct API: POST /databases with parent.page_id
+  // Create new database inside template page
   console.log('   Creating database in template page...');
   const newDb = await notion('POST', '/databases', {
     parent: { type: 'page_id', page_id: templateId },

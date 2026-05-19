@@ -48,6 +48,20 @@ async function publish(post, caption) {
 export async function run() {
   log('=== SNS Automation Pipeline Started ===');
 
+  const DAILY_LIMIT = parseInt(process.env.DAILY_POST_LIMIT || '2');
+
+  // 0. 오늘 게시된 포스트 수 확인 (daily limit)
+  try {
+    const todayCount = await getTodayPostCount(process.env.NOTION_DATABASE_ID);
+    log(`Today's posts: ${todayCount} / ${DAILY_LIMIT}`);
+    if (todayCount >= DAILY_LIMIT) {
+      log(`Daily limit (${DAILY_LIMIT}) reached. Done.`);
+      return;
+    }
+  } catch (e) {
+    log(`Daily count check failed: ${e.message}`, 'WARN');
+  }
+
   // 1. Notion에서 Ready 포스트 조회
   let posts;
   try {
@@ -97,7 +111,7 @@ export async function run() {
       const mediaId = await publish(post, caption);
       log(`✅ Published! Media ID: ${mediaId}`);
 
-      await updateStatus(post.id, 'Posted');
+      await updateStatus(post.id, 'Posted', { publishedAt: new Date().toISOString() });
       log(`✅ Status updated: "${post.name}" → Posted`);
     } catch (e) {
       log(`❌ Upload failed: "${post.name}" — ${e.message}`, 'ERROR');

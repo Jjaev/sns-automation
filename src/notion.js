@@ -61,12 +61,46 @@ export async function getReadyPosts(databaseId) {
 /**
  * 페이지 상태 업데이트
  */
-export async function updateStatus(pageId, status) {
+/**
+ * 오늘(UTC 기준) 게시된 포스트 수 조회 (daily limit 용)
+ */
+export async function getTodayPostCount(databaseId) {
+  const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
   const body = {
-    properties: {
-      Status: { select: { name: status } },
+    filter: {
+      and: [
+        { property: 'Status', select: { equals: 'Posted' } },
+        { property: 'Published At', date: { on_or_after: today } },
+      ],
     },
+    page_size: 100,
   };
+
+  const res = await fetch(`${BASE}/databases/${databaseId}/query`, {
+    method: 'POST',
+    headers: headers(),
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Notion daily count query failed: ${err}`);
+  }
+
+  const data = await res.json();
+  return data.results.length;
+}
+
+export async function updateStatus(pageId, status, opts = {}) {
+  const properties = {
+    Status: { select: { name: status } },
+  };
+
+  if (opts.publishedAt) {
+    properties['Published At'] = { date: { start: opts.publishedAt } };
+  }
+
+  const body = { properties };
 
   const res = await fetch(`${BASE}/pages/${pageId}`, {
     method: 'PATCH',

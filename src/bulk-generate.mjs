@@ -31,6 +31,7 @@ const DEFAULT_TOPICS = {
   'studio_sjw': {
     platform: 'Instagram',
     topics: [
+      // 기존 토픽 (20개)
       'SNS 자동화 시스템 소개',
       'AI가 작성하는 인스타 캡션 예시',
       '자영업자를 위한 SNS 꿀팁',
@@ -51,6 +52,32 @@ const DEFAULT_TOPICS = {
       '콘텐츠 캘린더 작성법',
       '인스타그램 프로필 최적화',
       'SNS 광고 vs 유기적 도달',
+      // --- 업종별 토픽 (20개) ---
+      // 카페/디저트
+      '카페 인스타그램 마케팅 전략',
+      '디저트 카페 브랜딩 꿀팁',
+      '카페 SNS 콘텐츠 아이디어',
+      '디저트 트렌드와 SNS 마케팅',
+      // 피트니스/필라테스
+      '필라테스 스튜디오 SNS 마케팅',
+      '피트니스 센터 온라인 홍보 방법',
+      '운동 관련 인스타 콘텐츠 기획',
+      '피트니스 브랜드 구축 전략',
+      // 인테리어/공간
+      '인테리어 브랜드 SNS 마케팅',
+      '공간 브랜딩 인스타 팁',
+      '인테리어 디자인 콘텐츠 기획',
+      '공간 연출 사진 활용법',
+      // 뷰티/미용
+      '미용실 SNS 마케팅 전략',
+      '뷰티 브랜드 인스타그램 운영',
+      '뷰티 콘텐츠 아이디어',
+      '미용 트렌드와 SNS 활용',
+      // 음식점/맛집
+      '음식점 인스타 마케팅 전략',
+      '맛집 브랜딩 콘텐츠 꿀팁',
+      '레스토랑 SNS 운영 방법',
+      '식당 메뉴 사진 촬영 팁',
     ],
     style: 'Korean, casual-friendly, 100-200 chars, 3-5 hashtags, emojis OK',
   },
@@ -121,28 +148,13 @@ Return ONLY valid JSON. No markdown, no explanation.`;
   return JSON.parse(jsonMatch[0]);
 }
 
-// === 이미지 URL 생성 (Supabase SJ 워터마크 이미지 풀) ===
-const SUPABASE_IMAGES = [
-  'gpti-01_2026-05-15_usb-hub-wm.png',
-  'gpti-02_2026-05-15_blush-wm.png',
-  'gpti-03_2026-05-15_sandwich-wm.png',
-  'gpti-04_2026-05-16_open-sandwich-wm.png',
-  'gpti-05_2026-05-16_tomato-detail-wm.png',
-  'gpti-06_2026-05-16_sandwich-ad-wm.png',
-  'gpti-07_2026-05-16_otter-profile-wm.png',
-  'gpti-08_2026-05-16_kfood-ad-wm.png',
-  'gpti-09_2026-05-16_temple-poster-wm.png',
-  'gpti-10_2026-05-16_meal-ad-wm.png',
-  'gpti-11_2026-05-16_shop-sale-card-wm.png',
-  'gpti-12_2026-05-16_bakery-card-wm.png',
-  'gpti-13_2026-05-16_snack-card-wm.png',
-];
-const SUPABASE_BASE = 'https://ffkranwhkgcwhsgskjgs.supabase.co/storage/v1/object/public/sns-images';
+// === 이미지 URL 생성 (다양성 자동 관리) ===
+import { pickImage } from './images.js';
 
 async function getImageUrl(description) {
-  // SJ 워터마크 이미지 중 랜덤 선택 (고퀄 브랜드 이미지)
-  const file = SUPABASE_IMAGES[Math.floor(Math.random() * SUPABASE_IMAGES.length)];
-  return `${SUPABASE_BASE}/${file}`;
+  // images.js의 pickImage() 사용 — Picsum + SJ 이미지 혼합, 중복 최소화
+  const result = await pickImage(description || 'business');
+  return result.url;
 }
 
 // === Notion DB에 등록 ===

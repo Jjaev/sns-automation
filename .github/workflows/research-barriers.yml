@@ -1,0 +1,41 @@
+name: AI Barrier Research
+
+on:
+  schedule:
+    - cron: '0 0 * * 0'  # 매주 일요일 09:00 KST (UTC+9, KST=UTC+9)
+  workflow_dispatch:       # 수동 실행 가능
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - run: npm ci --omit=dev
+
+      - name: Run AI barrier research
+        id: research
+        run: node scripts/research-barriers.mjs
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          RESEARCH_DATABASE_ID: ${{ secrets.RESEARCH_DATABASE_ID }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+
+      - name: Commit and push research log
+        run: |
+          git config user.name "frank-bot"
+          git config user.email "frank@opencode.dev"
+          git add 분석/ai-barrier-case-studies.md
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "auto: AI barrier research update $(date +'%Y-%m-%d')"
+            git push
+            echo "✅ Research log committed and pushed"
+          fi

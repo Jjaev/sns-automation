@@ -2,12 +2,14 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { getReadyPosts, updateStatus, createPost } from './notion.js';
-import { generateCaption } from './caption.js';
+import { getReadyPosts, updateStatus, createPost, getTodayPostCount } from './notion.js';
+import { generateCaption, generateAdCopy } from './caption.js';
 import { publishPhoto } from './instagram.js';
+import { pickImage, getImageStats } from './images.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const LOG_DIR = path.join(__dirname, '..', 'logs');
+const POST_DELAY_MINUTES = parseInt(process.env.POST_DELAY_MINUTES || '60', 10);
 
 // 로그 기록
 function log(message, type = 'INFO') {
@@ -38,7 +40,8 @@ async function publish(post, caption) {
     // case 'Twitter':
     //   return await publishTwitter({ caption, account: post.account });
     default:
-      throw new Error(`Platform "${post.platform}" not yet supported`);
+      log(`Platform "${post.platform}" not yet supported. Skipping.`, 'WARN');
+      return { skipped: true, reason: `Platform ${post.platform} not supported` };
   }
 }
 
@@ -47,6 +50,15 @@ async function publish(post, caption) {
  */
 export async function run() {
   log('=== SNS Automation Pipeline Started ===');
+
+  // 0a. 이미지 다양성 상태 로깅
+  try {
+    const imgStats = getImageStats();
+    log(`Image pool: ${imgStats.sjImages} SJ + ${imgStats.picsumSeeds} Picsum = ${imgStats.sjImages + imgStats.picsumSeeds} unique`);
+    log(`Total uses tracked: ${imgStats.totalUses} (SJ: ${imgStats.totalSjUsed}, Picsum: ${imgStats.totalPicsumUsed})`);
+  } catch (e) {
+    log(`Image stats unavailable: ${e.message}`);
+  }
 
   const DAILY_LIMIT = parseInt(process.env.DAILY_POST_LIMIT || '2');
 
@@ -82,10 +94,12 @@ export async function run() {
     log(`  ├─ Platform: ${post.platform}`);
     log(`  └─ Account:  ${post.account}`);
 
-    // 2. AI 캡션 생성
+    // 2. AI 캡션 생성 (이름에 [AD] prefix → 광고 카피)
     let caption;
     try {
-      caption = await generateCaption(post);
+      caption = post.name?.startsWith('[AD]')
+        ? await generateAdCopy(post)
+        : await generateCaption(post);
     } catch (e) {
       log(`Caption generation failed: ${e.message}`, 'WARN');
       caption = post.caption || '';
@@ -95,6 +109,23 @@ export async function run() {
       log(`Skipped "${post.name}": no caption and no image`, 'WARN');
       await updateStatus(post.id, 'Failed');
       continue;
+    }
+
+    // 2.5 이미지 다양성 확보: 기존 이미지가 너무 많이 재사용됐으면 새 이미지로 교체
+    let imageUrl = post.imageUrl;
+    try {
+      const freshImage = await pickImage(post.name);
+      if (freshImage && freshImage.url) {
+        const oldType = imageUrl?.includes('supabase') ? 'supabase' : 'other';
+        const newType = freshImage.type;
+        // SJ 브랜드 이미지는 아끼고, Picsum은 자유롭게 사용
+        if (newType === 'picsum' || oldType !== 'picsum') {
+          log(`  └─ Image: ${newType} (was ${oldType})`);
+          imageUrl = freshImage.url;
+        }
+      }
+    } catch (e) {
+      log(`Image refresh skipped: ${e.message}`, 'WARN');
     }
 
     // 3. 업로드
@@ -108,11 +139,24 @@ export async function run() {
     }
 
     try {
-      const mediaId = await publish(post, caption);
-      log(`✅ Published! Media ID: ${mediaId}`);
+      const result = await publish({ ...post, imageUrl }, caption);
 
+      if (result && result.skipped) {
+        log(`⏭️ Skipped "${post.name}": ${result.reason}`);
+        await updateStatus(post.id, 'Ready'); // 다시 큐에 유지 (다음에 다른 플랫폼으로 변경 가능)
+        continue;
+      }
+
+      log(`✅ Published! Media ID: ${result}`);
       await updateStatus(post.id, 'Posted', { publishedAt: new Date().toISOString() });
       log(`✅ Status updated: "${post.name}" → Posted`);
+
+      // 게시 간격 (여러 개 연속 업로드 방지)
+      if (POST_DELAY_MINUTES > 0) {
+        const ms = POST_DELAY_MINUTES * 60 * 1000;
+        log(`⏳ Waiting ${POST_DELAY_MINUTES} min before next post...`);
+        await new Promise(r => setTimeout(r, ms));
+      }
     } catch (e) {
       log(`❌ Upload failed: "${post.name}" — ${e.message}`, 'ERROR');
       await updateStatus(post.id, 'Failed');

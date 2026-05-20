@@ -2,7 +2,7 @@ name: SNS Automation Schedule
 
 on:
   schedule:
-    - cron: '0 */2 * * *'  # 2시간마다 (UTC, 한국시간 +9)
+    - cron: '0 0,3,6,9 * * *'  # 09:00 / 12:00 / 15:00 / 18:00 KST (UTC +9)
   workflow_dispatch:              # 수동 실행 가능
 
 jobs:
@@ -23,3 +23,4 @@ jobs:
           NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
           INSTAGRAM_ACCOUNTS: ${{ secrets.INSTAGRAM_ACCOUNTS }}
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          POST_DELAY_MINUTES: '60'

@@ -1,0 +1,52 @@
+name: AI Personal Assistant
+
+on:
+  schedule:
+    - cron: '0 23 * * *'   # 08:00 KST (UTC 23:00) — 모닝 루틴
+    - cron: '0 11 * * *'   # 20:00 KST (UTC 11:00) — 저녁 체크인
+    - cron: '0 10 * * 0'   # 일요일 19:00 KST — 주간 리뷰
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'morning / evening / weekly'
+        required: true
+        default: 'morning'
+
+jobs:
+  assistant:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm ci --omit=dev
+
+      - name: Determine mode
+        id: mode
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "mode=${{ github.event.inputs.mode }}" >> $GITHUB_OUTPUT
+          else
+            # Schedule-based: determine by cron time
+            HOUR=$(date -u +%H)
+            DAY=$(date -u +%u)
+            if [ "$DAY" = "7" ] && [ "$HOUR" = "10" ]; then
+              echo "mode=weekly" >> $GITHUB_OUTPUT
+            elif [ "$HOUR" = "23" ]; then
+              echo "mode=morning" >> $GITHUB_OUTPUT
+            elif [ "$HOUR" = "11" ]; then
+              echo "mode=evening" >> $GITHUB_OUTPUT
+            else
+              echo "mode=morning" >> $GITHUB_OUTPUT
+            fi
+          fi
+
+      - name: Run AI assistant
+        run: node scripts/ai-assistant.mjs --mode=${{ steps.mode.outputs.mode }}
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          AI_ASSISTANT_DB_ID: 3668ab04-904c-81bb-a258-c261dcc1529d

@@ -91,6 +91,30 @@ export async function getTodayPostCount(databaseId) {
   return data.results.length;
 }
 
+/**
+ * 페이지 Caption 필드 업데이트 (재생성/수정용)
+ */
+export async function updateCaption(pageId, caption) {
+  const body = {
+    properties: {
+      Caption: { rich_text: [{ text: { content: caption || '' } }] },
+    },
+  };
+
+  const res = await fetch(`${BASE}/pages/${pageId}`, {
+    method: 'PATCH',
+    headers: headers(),
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Notion caption update failed: ${err}`);
+  }
+
+  return res.json();
+}
+
 export async function updateStatus(pageId, status, opts = {}) {
   const properties = {
     Status: { select: { name: status } },

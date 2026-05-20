@@ -4,7 +4,7 @@
 
 // Gemini API 엔드포인트 (무료 티어)
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
-const GEMINI_API = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash';
+const GEMINI_API = 'https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash';
 
 import { fingerprintImage, checkDuplicate, markImageUsed } from './images.js';
 

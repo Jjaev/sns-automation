@@ -4,7 +4,9 @@
 
 // Gemini API 엔드포인트 (무료 티어)
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
-const GEMINI_API = 'https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash-lite';
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite';
+const GEMINI_FALLBACK_MODEL = process.env.GEMINI_FALLBACK_MODEL || 'gemini-3.1-flash-lite';
+const GEMINI_API = `https://generativelanguage.googleapis.com/v1/models/${GEMINI_MODEL}`;
 
 import { fingerprintImage, checkDuplicate, markImageUsed } from './images.js';
 
@@ -13,23 +15,37 @@ export async function analyzeImageQuality(imageUrl) {
     return basicCheck(imageUrl);
   }
 
-  try {
-    const result = await geminiAnalysis(imageUrl);
-    return result;
-  } catch (err) {
-    console.error(`[WARN] Gemini analysis failed: ${err.message}`);
-    return basicCheck(imageUrl);
+  // Try primary model, then fallback on 503
+  const modelsToTry = [GEMINI_MODEL, GEMINI_FALLBACK_MODEL];
+  
+  for (const model of modelsToTry) {
+    try {
+      const result = await geminiAnalysis(imageUrl, model);
+      return result;
+    } catch (err) {
+      const is503 = err.message.includes('503') || err.message.includes('high demand');
+      if (!is503) {
+        // 503 아니면 바로 fallback (모델 문제가 아님)
+        break;
+      }
+      console.log(`  Model ${model} busy, trying fallback...`);
+    }
   }
+
+  // All models failed → basic check
+  return basicCheck(imageUrl);
 }
 
 // === Gemini 기반 이미지 분석 ===
-async function geminiAnalysis(imageUrl) {
-  // 1. 이미지 다운로드 → base64
-  const res = await fetch(imageUrl, { signal: AbortSignal.timeout(10000) });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+async function geminiAnalysis(imageUrl, modelName) {
+  const apiUrl = `https://generativelanguage.googleapis.com/v1/models/${modelName}:generateContent?key=${GEMINI_API_KEY}`;
 
-  const contentType = res.headers.get('content-type') || 'image/jpeg';
-  const buffer = Buffer.from(await res.arrayBuffer());
+  // 1. 이미지 다운로드 → base64
+  const imgRes = await fetch(imageUrl, { signal: AbortSignal.timeout(10000) });
+  if (!imgRes.ok) throw new Error(`HTTP ${imgRes.status}`);
+
+  const contentType = imgRes.headers.get('content-type') || 'image/jpeg';
+  const buffer = Buffer.from(await imgRes.arrayBuffer());
   const base64 = buffer.toString('base64');
 
   // 2. Gemini API 호출 — 이미지 + 품질 평가 프롬프트
@@ -45,7 +61,7 @@ Rules:
 - issues: array of strings, empty if none
 - Return NOTHING except the JSON object. No \`\`\`, no explanation.`;
 
-  const apiRes = await fetch(`${GEMINI_API}:generateContent?key=${GEMINI_API_KEY}`, {
+  const apiRes = await fetch(apiUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({

@@ -4,7 +4,7 @@
 
 // Gemini API 엔드포인트 (무료 티어)
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
-const GEMINI_API = 'https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash';
+const GEMINI_API = 'https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash-lite';
 
 import { fingerprintImage, checkDuplicate, markImageUsed } from './images.js';
 
@@ -33,21 +33,17 @@ async function geminiAnalysis(imageUrl) {
   const base64 = buffer.toString('base64');
 
   // 2. Gemini API 호출 — 이미지 + 품질 평가 프롬프트
-  const prompt = `You are an Instagram image quality inspector. Analyze this image and return ONLY valid JSON:
+  const prompt = `You are an Instagram image quality inspector. Analyze this image and return ONLY valid JSON with NO markdown formatting, NO code fences:
 
-{
-  "score": 0-100,
-  "is_blurry": true/false,
-  "aspect_ratio_ok": true/false,
-  "issues": ["issue1", "issue2"],
-  "description_kr": "이미지에 대한 간단한 한국어 설명 (10-15자)"
-}
+{"score": 0-100, "is_blurry": false, "aspect_ratio_ok": true, "issues": [], "description_kr": "짧은 한국어 설명"}
 
 Rules:
-- Score < 40 = do NOT post (too low quality)
-- Check: blur, compression artifacts, watermarks, text readability
-- Aspect ratio should be near 1:1 (square) for Instagram
-- Description_kr: VERY short, just what's in the image`;
+- Score < 40 = reject (low quality)
+- Check: blur, compression, watermark, text readability
+- aspect_ratio_ok = near 1:1 (square)
+- description_kr: max 15 chars, describe what's in the image
+- issues: array of strings, empty if none
+- Return NOTHING except the JSON object. No \`\`\`, no explanation.`;
 
   const apiRes = await fetch(`${GEMINI_API}:generateContent?key=${GEMINI_API_KEY}`, {
     method: 'POST',
@@ -61,10 +57,10 @@ Rules:
       }],
       generationConfig: {
         temperature: 0.1,
-        maxOutputTokens: 200,
+        maxOutputTokens: 500,
       }
     }),
-    signal: AbortSignal.timeout(15000),
+    signal: AbortSignal.timeout(20000),
   });
 
   if (!apiRes.ok) {
@@ -75,15 +71,17 @@ Rules:
   const data = await apiRes.json();
   const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
-  // JSON 파싱 시도
+  // JSON 파싱 시도 (markdown code fence 제거 후)
   try {
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    // 코드 펜스(```json ... ```) 제거
+    const cleaned = text.replace(/```[\s\S]*?```/g, '').trim();
+    const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[0]);
       return {
         method: 'gemini',
         ...parsed,
-        raw: text.slice(0, 200),
+        raw: text.slice(0, 300),
       };
     }
   } catch {}

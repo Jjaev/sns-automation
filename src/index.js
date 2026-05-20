@@ -5,7 +5,8 @@ import { fileURLToPath } from 'url';
 import { getReadyPosts, updateStatus, createPost, getTodayPostCount } from './notion.js';
 import { generateCaption, generateAdCopy } from './caption.js';
 import { publishPhoto } from './instagram.js';
-import { pickImage, getImageStats, validateAndReplace } from './images.js';
+import { pickImage, getImageStats } from './images.js';
+import { fullImageValidation } from './image-validator.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const LOG_DIR = path.join(__dirname, '..', 'logs');
@@ -111,17 +112,28 @@ export async function run() {
       continue;
     }
 
-    // 2.5 이미지 검증: 중복 체크 + 품질 확인 후 필요 시 교체
+    // 2.5 이미지 검증: 중복 + 품질 체크 후 필요 시 교체
     let imageUrl = post.imageUrl;
     if (imageUrl) {
       try {
-        const validatedUrl = await validateAndReplace(imageUrl, post.name);
-        if (validatedUrl !== imageUrl) {
-          log(`  └─ Image replaced (duplicate/invalid): ${validatedUrl.slice(-30)}`);
-          imageUrl = validatedUrl;
+        const validation = await fullImageValidation(imageUrl, post.name);
+        if (!validation.passed) {
+          log(`  ⚠️  Image rejected: ${validation.warnings.join('; ')}`);
+          // 새 이미지 할당
+          const freshImage = await pickImage(post.name);
+          if (freshImage?.url) {
+            imageUrl = freshImage.url;
+            log(`  └─ Replaced with fresh: ${freshImage.type}`);
+          }
+        } else if (validation.warnings.length > 0) {
+          log(`  └─ Image OK (warnings: ${validation.warnings.join('; ')})`);
+        }
+        if (validation.description) {
+          log(`  └─ Image: ${validation.description}`);
         }
       } catch (e) {
-        log(`Image validation skipped: ${e.message}`, 'WARN');
+        log(`Image validation error: ${e.message}`, 'WARN');
+        // 검증 실패해도 기존 이미지로 진행
       }
     } else {
       // 이미지 없으면 새로 할당

@@ -1,0 +1,22 @@
+# 리드 자동 후속 — 매일 10:00, 18:00 KST
+# Notion Lead DB → Telegram 알림 → 단계별 후속
+name: lead-followup
+
+on:
+  schedule:
+    - cron: '0 1,9 * * *'  # 10:00, 18:00 KST (UTC 01, 09)
+  workflow_dispatch:
+
+jobs:
+  followup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run lead followup
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          NOTION_LEAD_DB_ID: ${{ secrets.NOTION_LEAD_DB_ID }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: node scripts/lead-followup.js

@@ -5,7 +5,7 @@ import { fileURLToPath } from 'url';
 import { getReadyPosts, updateStatus, createPost, getTodayPostCount } from './notion.js';
 import { generateCaption, generateAdCopy } from './caption.js';
 import { publishPhoto } from './instagram.js';
-import { pickImage, getImageStats } from './images.js';
+import { pickImage, getImageStats, validateAndReplace } from './images.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const LOG_DIR = path.join(__dirname, '..', 'logs');
@@ -111,21 +111,29 @@ export async function run() {
       continue;
     }
 
-    // 2.5 이미지 다양성 확보: 기존 이미지가 너무 많이 재사용됐으면 새 이미지로 교체
+    // 2.5 이미지 검증: 중복 체크 + 품질 확인 후 필요 시 교체
     let imageUrl = post.imageUrl;
-    try {
-      const freshImage = await pickImage(post.name);
-      if (freshImage && freshImage.url) {
-        const oldType = imageUrl?.includes('supabase') ? 'supabase' : 'other';
-        const newType = freshImage.type;
-        // SJ 브랜드 이미지는 아끼고, Picsum은 자유롭게 사용
-        if (newType === 'picsum' || oldType !== 'picsum') {
-          log(`  └─ Image: ${newType} (was ${oldType})`);
-          imageUrl = freshImage.url;
+    if (imageUrl) {
+      try {
+        const validatedUrl = await validateAndReplace(imageUrl, post.name);
+        if (validatedUrl !== imageUrl) {
+          log(`  └─ Image replaced (duplicate/invalid): ${validatedUrl.slice(-30)}`);
+          imageUrl = validatedUrl;
         }
+      } catch (e) {
+        log(`Image validation skipped: ${e.message}`, 'WARN');
       }
-    } catch (e) {
-      log(`Image refresh skipped: ${e.message}`, 'WARN');
+    } else {
+      // 이미지 없으면 새로 할당
+      try {
+        const freshImage = await pickImage(post.name);
+        if (freshImage?.url) {
+          imageUrl = freshImage.url;
+          log(`  └─ New image assigned: ${freshImage.type}`);
+        }
+      } catch (e) {
+        log(`Image pick failed: ${e.message}`, 'WARN');
+      }
     }
 
     // 3. 업로드

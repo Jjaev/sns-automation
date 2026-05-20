@@ -7,3 +7,5 @@ src/create-samples.js
 src/add-samples.js
 src/update-captions.js
 .DS_Store
+.image-tracker.json
+.image-hashes.json

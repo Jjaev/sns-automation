@@ -1,7 +1,8 @@
-// images.js — 이미지 선택 및 다양성 관리
-// 목표: 같은 이미지 반복 사용 최소화, 주제별 적합한 이미지 할당
+// images.js — 이미지 선택, 검증, 다양성 관리
+// 목표: 같은 이미지 반복 사용 최소화, 주제별 적합한 이미지 할당, 이미지 품질 확인
 import fs from 'fs';
 import path from 'path';
+import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -226,4 +227,144 @@ export async function pickUnsplashImage(query = 'business', width = 800, height 
   } catch {
     return null;
   }
+}
+
+// === 이미지 해싱 + 중복 검증 시스템 ===
+// 이미지를 다운로드해서 SHA256 해시 계산 → 중복 게시 방지
+
+const USED_HASHES_PATH = path.join(__dirname, '..', '.image-hashes.json');
+
+function loadHashes() {
+  try {
+    if (fs.existsSync(USED_HASHES_PATH)) {
+      return JSON.parse(fs.readFileSync(USED_HASHES_PATH, 'utf-8'));
+    }
+  } catch {}
+  return { hashes: {} };
+}
+
+function saveHashes(data) {
+  try {
+    fs.writeFileSync(USED_HASHES_PATH, JSON.stringify(data, null, 2), 'utf-8');
+  } catch (err) {
+    console.error(`[WARN] Failed to save image hashes: ${err.message}`);
+  }
+}
+
+/**
+ * 이미지 URL을 다운로드해서 SHA256 해시 계산
+ * @param {string} imageUrl
+ * @returns {Promise<{hash: string, size: number, width?: number, height?: number}>}
+ */
+export async function fingerprintImage(imageUrl) {
+  try {
+    const res = await fetch(imageUrl, { signal: AbortSignal.timeout(10000) });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+    const contentType = res.headers.get('content-type') || '';
+    if (!contentType.startsWith('image/')) {
+      throw new Error(`Not an image: ${contentType}`);
+    }
+
+    const buffer = Buffer.from(await res.arrayBuffer());
+    const hash = crypto.createHash('sha256').update(buffer).digest('hex').slice(0, 16);
+
+    // Content-Length로 크기 확인
+    const size = parseInt(res.headers.get('content-length') || '0', 10);
+
+    return { hash, size, contentType };
+  } catch (err) {
+    return { hash: '', size: 0, error: err.message };
+  }
+}
+
+/**
+ * 이미지가 이미 사용된 적 있는지 확인
+ * @param {string} hash
+ * @param {number} [expiryDays=90] — 최근 N일 이내 사용된 것만 중복으로 간주
+ * @returns {{ isDuplicate: boolean, lastUsed: string|null, timesUsed: number }}
+ */
+export function checkDuplicate(hash, expiryDays = 90) {
+  if (!hash) return { isDuplicate: false, lastUsed: null, timesUsed: 0 };
+
+  const data = loadHashes();
+  const record = data.hashes[hash];
+  if (!record) return { isDuplicate: false, lastUsed: null, timesUsed: 0 };
+
+  const lastUsed = record.lastUsed || '';
+  const timesUsed = record.count || 0;
+  const expired = lastUsed
+    ? (Date.now() - new Date(lastUsed).getTime()) > expiryDays * 24 * 60 * 60 * 1000
+    : true;
+
+  return {
+    isDuplicate: !expired,
+    lastUsed,
+    timesUsed,
+  };
+}
+
+/**
+ * 이미지 해시를 사용 기록에 저장
+ */
+export function markImageUsed(hash, metadata = {}) {
+  if (!hash) return;
+
+  const data = loadHashes();
+  if (!data.hashes[hash]) {
+    data.hashes[hash] = { count: 0, firstUsed: null, lastUsed: null, ...metadata };
+  }
+  data.hashes[hash].count = (data.hashes[hash].count || 0) + 1;
+  data.hashes[hash].lastUsed = new Date().toISOString();
+  if (!data.hashes[hash].firstUsed) {
+    data.hashes[hash].firstUsed = new Date().toISOString();
+  }
+  saveHashes(data);
+}
+
+/**
+ * 게시 전 이미지 검증: 중복 확인 + 유효성 검사
+ * 중복이면 새 이미지로 교체하고 교체된 URL 반환
+ */
+export async function validateAndReplace(imageUrl, postName, maxRetries = 3) {
+  // 1. 이미지 핑거프린트
+  const fp = await fingerprintImage(imageUrl);
+
+  if (fp.hash) {
+    // 2. 중복 체크
+    const dup = checkDuplicate(fp.hash);
+    if (dup.isDuplicate) {
+      console.log(`  ⚠️  중복 이미지 감지! (${dup.timesUsed}번째 사용, 마지막: ${dup.lastUsed?.slice(0, 10)})`);
+      // 새 이미지로 교체 시도
+      for (let attempt = 0; attempt < maxRetries; attempt++) {
+        const fresh = await pickImage(postName);
+        if (!fresh?.url) continue;
+
+        const freshFp = await fingerprintImage(fresh.url);
+        if (!freshFp.hash) continue;
+
+        const freshDup = checkDuplicate(freshFp.hash);
+        if (!freshDup.isDuplicate) {
+          // 중복 아닌 이미지 찾음 → 저장
+          markImageUsed(freshFp.hash, { url: fresh.url, type: fresh.type });
+          console.log(`  ✅ 새 이미지로 교체: ${fresh.type}`);
+          return fresh.url;
+        }
+      }
+      // 재시도 실패: 그래도 다른 이미지 반환 (중복이더라도)
+      console.log(`  ⚠️ 중복 회피 실패, 다른 이미지로 대체`);
+      const fallback = await pickImage(postName);
+      return fallback?.url || imageUrl;
+    }
+
+    // 3. 중복 아니면 정상
+    markImageUsed(fp.hash, { url: imageUrl });
+  }
+
+  // 4. 이미지 크기 검증 (너무 작은 이미지 경고)
+  if (fp.size > 0 && fp.size < 1024) {
+    console.log(`  ⚠️ 이미지가 너무 작음: ${fp.size} bytes`);
+  }
+
+  return imageUrl;
 }

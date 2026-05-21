@@ -29,15 +29,23 @@ jobs:
         run: npx playwright install chromium
 
       - name: Generate tip card
+        id: card
         run: |
           TOPIC="${{ github.event.inputs.topic || '' }}"
-          if [ -n "$TOPIC" ]; then
-            node scripts/tip-poster.mjs --topic "$TOPIC"
-          else
-            node scripts/tip-poster.mjs
-          fi
+          CARD_PATH=$(node scripts/tip-poster.mjs $([ -n "$TOPIC" ] && echo "--topic $TOPIC") 2>&1 | tee /dev/stderr | grep "Card ready:" | sed 's/.*Card ready: //')
+          echo "card_path=$CARD_PATH" >> $GITHUB_OUTPUT
         env:
           UNSPLASH_ACCESS_KEY: ${{ secrets.UNSPLASH_ACCESS_KEY }}
+
+      - name: Post to Instagram
+        run: |
+          if [ -n "${{ steps.card.outputs.card_path }}" ]; then
+            echo "Posting: ${{ steps.card.outputs.card_path }}"
+            node src/playwright-instagram.js "${{ steps.card.outputs.card_path }}"
+          else
+            echo "No card generated, skipping post"
+          fi
+        env:
           INSTAGRAM_ACCOUNTS: ${{ secrets.INSTAGRAM_ACCOUNTS }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}

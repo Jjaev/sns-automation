@@ -196,17 +196,11 @@ async function generateImage(tip) {
   const timestamp = Date.now();
   const htmlPath = path.join(ROOT, 'images', `tip-${timestamp}.html`);
   const pngPath = path.join(ROOT, 'images', `tip-${timestamp}.png`);
-
-  // Ensure images dir exists
   const imagesDir = path.join(ROOT, 'images');
-  if (!require?.main && !fs.existsSync) {
-    const fs = await import('fs');
-    if (!fs.existsSync(imagesDir)) fs.mkdirSync(imagesDir, { recursive: true });
-  }
 
-  const fs = await import('fs');
-  if (!fs.existsSync(imagesDir)) fs.mkdirSync(imagesDir, { recursive: true });
-  fs.writeFileSync(htmlPath, html, 'utf-8');
+  const fs_mod = await import('fs');
+  if (!fs_mod.existsSync(imagesDir)) fs_mod.mkdirSync(imagesDir, { recursive: true });
+  fs_mod.writeFileSync(htmlPath, html, 'utf-8');
 
   let browser;
   try {
@@ -225,61 +219,31 @@ async function generateImage(tip) {
   }
 }
 
-async function postToInstagram(imagePath, tip) {
-  const caption = `${tip.title}\n\n${tip.body}\n.\n.\n${tip.tags}\n.\n.\n👉 무료 SNS 진단 받기: studio-sj-agency.vercel.app`;
-
-  // Use the existing playwright-instagram.js to post
-  const { spawn } = await import('child_process');
-  return new Promise((resolve, reject) => {
-    const proc = spawn('node', ['src/playwright-instagram.js', '--test', imagePath, '--caption', caption], {
-      cwd: ROOT,
-      stdio: ['ignore', 'pipe', 'pipe'],
-      env: { ...process.env },
-    });
-    let output = '';
-    proc.stdout.on('data', d => output += d.toString());
-    proc.stderr.on('data', d => output += d.toString());
-    proc.on('close', code => {
-      if (code === 0) resolve(output);
-      else reject(new Error(`Post failed (${code}): ${output.slice(-200)}`));
-    });
-  });
-}
-
 // ===== Main =====
 async function main() {
   const args = process.argv.slice(2);
   const topicIdx = args.indexOf('--topic');
   const topic = topicIdx >= 0 ? args[topicIdx + 1] : null;
 
-  console.log('=== Tip Poster ===');
-
-  // 1. Pick a tip
   const tip = pickTip(topic);
   console.log(`Topic: "${tip.title}"`);
 
-  // 2. Generate card image
   const imagePath = await generateImage(tip);
   if (!imagePath) {
     console.error('❌ Failed to generate card');
     process.exit(1);
   }
 
-  // 3. Post to Instagram
   if (process.env.DRY_RUN === 'true') {
     console.log(`[DRY RUN] Would post: "${tip.title}"`);
     console.log(`[DRY RUN] Image: ${imagePath}`);
     return;
   }
 
-  try {
-    const result = await postToInstagram(imagePath, tip);
-    console.log(`✅ Posted!`);
-    console.log(result.slice(0, 200));
-  } catch (err) {
-    console.error(`❌ ${err.message}`);
-    process.exit(1);
-  }
+  console.log(`\n✅ Card ready: ${imagePath}`);
+  console.log(`Caption preview:`);
+  console.log(`${tip.title}\n${tip.body}\n${tip.tags}`);
+  console.log(`\nTo post, use the main pipeline with image: ${imagePath}`);
 }
 
 main();

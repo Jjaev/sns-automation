@@ -14,7 +14,8 @@
     "assistant": "node scripts/ai-assistant.mjs",
     "assistant:morning": "node scripts/ai-assistant.mjs --mode=morning",
     "assistant:evening": "node scripts/ai-assistant.mjs --mode=evening",
-    "assistant:weekly": "node scripts/ai-assistant.mjs --mode=weekly"
+    "assistant:weekly": "node scripts/ai-assistant.mjs --mode=weekly",
+    "reel": "bash scripts/create-reel.sh"
   },
   "type": "module",
   "dependencies": {

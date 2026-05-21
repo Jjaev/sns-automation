@@ -89,10 +89,6 @@ export async function getTodayPostCount(databaseId) {
   return data.results ? data.results.length : 0;
 }
 
-  const data = await res.json();
-  return data.results.length;
-}
-
 /**
  * 페이지 Caption 필드 업데이트 (재생성/수정용)
  */

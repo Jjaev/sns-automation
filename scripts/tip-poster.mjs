@@ -209,7 +209,7 @@ async function generateImage(tip) {
     await page.goto(`file://${htmlPath}`, { waitUntil: 'networkidle', timeout: 15000 });
     await page.screenshot({ path: pngPath, fullPage: true });
     await browser.close();
-    fs.unlinkSync(htmlPath);
+    fs_mod.unlinkSync(htmlPath);
     console.log(`✅ Card image: ${pngPath}`);
     return pngPath;
   } catch (err) {

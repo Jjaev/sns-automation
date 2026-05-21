@@ -4,7 +4,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { getReadyPosts, updateStatus, createPost, getTodayPostCount } from './notion.js';
 import { generateCaption, generateAdCopy } from './caption.js';
-import { publishPhoto } from './instagram.js';
+import { publishPhoto, publishReel } from './instagram.js';
 import { pickImage, getImageStats } from './images.js';
 import { fullImageValidation } from './image-validator.js';
 
@@ -30,16 +30,27 @@ function log(message, type = 'INFO') {
 async function publish(post, caption) {
   switch (post.platform) {
     case 'Instagram':
+      if (post.mediaType === 'REELS') {
+        return await publishReel({
+          caption,
+          videoUrl: post.videoUrl,
+          account: post.account,
+          shareToFeed: post.shareToFeed !== false,
+        });
+      }
       return await publishPhoto({
         caption,
         imageUrl: post.imageUrl,
-        account: post.account,   // ← 계정 정보 전달
+        account: post.account,
       });
-    // TODO: 다음 플랫폼들
-    // case 'LinkedIn':
-    //   return await publishLinkedin({ caption, account: post.account });
-    // case 'Twitter':
-    //   return await publishTwitter({ caption, account: post.account });
+    case 'Instagram_REELS':
+      // REELS 전용 alias (platform을 REELS로 설정해도 동작)
+      return await publishReel({
+        caption,
+        videoUrl: post.videoUrl,
+        account: post.account,
+        shareToFeed: post.shareToFeed !== false,
+      });
     default:
       log(`Platform "${post.platform}" not yet supported. Skipping.`, 'WARN');
       return { skipped: true, reason: `Platform ${post.platform} not supported` };

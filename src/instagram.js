@@ -60,7 +60,6 @@ export async function publishPhoto(post) {
   const config = getAccountConfig(account);
   const { token: accessToken, businessId } = config;
 
-  // Step 1: Create media container
   const createUrl = `${GRAPH_BASE}/${businessId}/media`;
   const createParams = new URLSearchParams({
     image_url: imageUrl,
@@ -77,7 +76,6 @@ export async function publishPhoto(post) {
 
   const containerId = createData.id;
 
-  // Step 2: Publish the container
   const publishUrl = `${GRAPH_BASE}/${businessId}/media_publish`;
   const publishParams = new URLSearchParams({
     creation_id: containerId,
@@ -89,6 +87,52 @@ export async function publishPhoto(post) {
 
   if (publishData.error) {
     throw new Error(`Instagram publish failed: ${publishData.error.message}`);
+  }
+
+  return publishData.id;
+}
+
+/**
+ * Instagram Reels 게시 (릴스 탭 + 피드)
+ * @param {object} post - { caption, videoUrl, account, shareToFeed }
+ * @returns {string} media_id
+ */
+export async function publishReel(post) {
+  const { caption, videoUrl, account, shareToFeed = true } = post;
+  const config = getAccountConfig(account);
+  const { token: accessToken, businessId } = config;
+
+  // Step 1: Create REELS media container
+  const createUrl = `${GRAPH_BASE}/${businessId}/media`;
+  const params = new URLSearchParams({
+    media_type: 'REELS',
+    video_url: videoUrl,
+    caption: caption,
+    share_to_feed: shareToFeed ? 'true' : 'false',
+    access_token: accessToken,
+  });
+
+  const createRes = await fetch(`${createUrl}?${params}`, { method: 'POST' });
+  const createData = await createRes.json();
+
+  if (createData.error) {
+    throw new Error(`Instagram Reels create failed: ${createData.error.message}`);
+  }
+
+  const containerId = createData.id;
+
+  // Step 2: Publish
+  const publishUrl = `${GRAPH_BASE}/${businessId}/media_publish`;
+  const publishParams = new URLSearchParams({
+    creation_id: containerId,
+    access_token: accessToken,
+  });
+
+  const publishRes = await fetch(`${publishUrl}?${publishParams}`, { method: 'POST' });
+  const publishData = await publishRes.json();
+
+  if (publishData.error) {
+    throw new Error(`Instagram Reels publish failed: ${publishData.error.message}`);
   }
 
   return publishData.id;

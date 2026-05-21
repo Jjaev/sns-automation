@@ -117,8 +117,14 @@ export async function run() {
       caption = post.caption || '';
     }
 
-    if (!caption && !post.imageUrl) {
+    if (!caption && !post.imageUrl && post.mediaType !== 'REELS') {
       log(`Skipped "${post.name}": no caption and no image`, 'WARN');
+      await updateStatus(post.id, 'Failed');
+      continue;
+    }
+    // REELS: 비디오 URL 없으면 스킵
+    if (post.mediaType === 'REELS' && !post.videoUrl) {
+      log(`Skipped "${post.name}": REELS type but missing videoUrl`, 'WARN');
       await updateStatus(post.id, 'Failed');
       continue;
     }

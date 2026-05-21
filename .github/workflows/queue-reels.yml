@@ -1,0 +1,35 @@
+# queue-reels.yml — 릴스 아이디어 → Notion 큐 자동 등록
+# Usage: This workflow is manually triggered (workflow_dispatch)
+# It creates 10 pre-written reel post ideas as 'Idea' in the Notion queue.
+# When a reel video URL is available, change status to 'Ready' in Notion.
+
+name: Queue Reel Ideas
+
+on:
+  workflow_dispatch:
+    inputs:
+      clear_first:
+        description: 'Clear existing REELS posts in Idea status first?'
+        type: boolean
+        default: false
+        required: false
+
+jobs:
+  queue-reels:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Queue reel ideas to Notion
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
+        run: node scripts/queue-reels.mjs

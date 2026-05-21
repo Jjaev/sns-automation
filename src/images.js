@@ -102,22 +102,27 @@ function topicToStyle(name) {
 
 // === 메인 이미지 선택 함수 ===
 // 전략:
-// 1. SJ 브랜드 이미지는 최대한 아껴씀 (일주일에 1-2번만)
-// 2. Picsum 이미지를 기본으로 사용 (무제한, 다양함)
-// 3. 같은 이미지가 30일 내에 재사용되지 않도록 추적
+// 1. Unsplash (API 키 있으면) — 주제별 검색, 고품질, 1순위
+// 2. SJ 브랜드 이미지 — 일주일에 1-2번만
+// 3. Picsum — 최후의 fallback
 export async function pickImage(postName) {
   const tracker = loadTracker();
   const style = topicToStyle(postName);
 
-  // SJ 이미지 사용 횟수 확인 — 적게 쓴 이미지 우선
+  // === 1. Unsplash 우선 ===
+  const unsplashResult = await pickUnsplashImage(postName);
+  if (unsplashResult) {
+    console.log(`  📸 Unsplash image for "${postName}"`);
+    return unsplashResult;
+  }
+
+  // SJ 이미지 / Picsum 사용 횟수 확인
   const sjUsage = SJ_IMAGES.map((_, i) => ({
     index: i,
     count: tracker.sj[i] || 0,
     url: getSjImageUrl(i),
     isSj: true,
   }));
-
-  // Picsum 사용 횟수 확인
   const picsumUsage = PICSUM_SEEDS.map((seed) => ({
     seed,
     count: tracker.picsum[seed] || 0,
@@ -138,15 +143,11 @@ export async function pickImage(postName) {
       .map((h) => h.picsum)
   );
 
-  // 결정: 80% 확률로 Picsum, 20% 확률로 SJ 브랜드 이미지
-  const useSj = Math.random() < 0.2;
-
-  if (useSj) {
-    // SJ 이미지: 가장 적게 사용되고, 최근 30일 내 사용 안 한 것 우선
+  // === 2. SJ 브랜드 이미지 (20%) ===
+  if (Math.random() < 0.2) {
     const available = sjUsage
       .filter((img) => !recentSJ.has(img.index))
       .sort((a, b) => a.count - b.count);
-
     if (available.length > 0) {
       const chosen = available[0];
       markUsed(chosen.index, -1);
@@ -158,7 +159,7 @@ export async function pickImage(postName) {
     }
   }
 
-  // Picsum: 가장 적게 사용되고, 최근 30일 내 사용 안 한 것 우선
+  // === 3. Picsum fallback ===
   const available = picsumUsage
     .filter((img) => !recentPicsum.has(img.seed))
     .sort((a, b) => a.count - b.count);
@@ -173,7 +174,6 @@ export async function pickImage(postName) {
     };
   }
 
-  // 모두 사용됐으면 랜덤 (어쨌든 다양성 확보)
   const fallback = picsumUsage[Math.floor(Math.random() * picsumUsage.length)];
   markUsed(-1, fallback.seed);
   return {
@@ -204,27 +204,65 @@ export function getImageStats() {
   };
 }
 
-// === (선택) Unspash API 연동 — API 키가 있으면 사용 ===
-// Unsplash 액세스 키가 설정된 경우에만 활성화
+// === Unsplash API — 주제별 고품질 이미지 검색 ===
 const UNSPLASH_ACCESS_KEY = process.env.UNSPLASH_ACCESS_KEY || '';
 
-export async function pickUnsplashImage(query = 'business', width = 800, height = 800) {
+// 주제명 → Unsplash 검색어 매핑
+const TOPIC_KEYWORDS = {
+  '카페': 'cafe coffee shop',
+  '음식': 'food restaurant',
+  '맛집': 'food restaurant',
+  '요리': 'cooking kitchen',
+  '커피': 'coffee',
+  '베이커리': 'bakery pastry',
+  '뷰티': 'beauty skincare',
+  '화장': 'makeup cosmetics',
+  '패션': 'fashion style',
+  '옷': 'fashion clothing',
+  '인테리어': 'interior design home',
+  '헬스': 'fitness workout',
+  '운동': 'sports exercise',
+  '여행': 'travel vacation',
+  '기술': 'technology business',
+  'AI': 'artificial intelligence technology',
+  '자동화': 'automation technology',
+  '소프트웨어': 'software technology',
+  '교육': 'education learning',
+  '일반': 'business office',
+};
+
+function postNameToQuery(postName) {
+  const lower = (postName || '').toLowerCase();
+  for (const [keyword, query] of Object.entries(TOPIC_KEYWORDS)) {
+    if (lower.includes(keyword)) return query;
+  }
+  return 'business creative';
+}
+
+export async function pickUnsplashImage(postName = '') {
   if (!UNSPLASH_ACCESS_KEY || UNSPLASH_ACCESS_KEY.length < 10) return null;
+
+  const query = postNameToQuery(postName);
 
   try {
     const res = await fetch(
-      `https://api.unsplash.com/photos/random?query=${encodeURIComponent(query)}&w=${width}&h=${height}&fit=crop`,
+      `https://api.unsplash.com/photos/random?query=${encodeURIComponent(query)}&w=1080&h=1080&fit=crop&orientation=squarish`,
       { headers: { Authorization: `Client-ID ${UNSPLASH_ACCESS_KEY}` } }
     );
-    if (!res.ok) return null;
+    if (!res.ok) {
+      console.log(`  ⚠️ Unsplash API error: ${res.status}`);
+      return null;
+    }
 
     const data = await res.json();
     return {
       url: data.urls?.regular || data.urls?.raw || '',
       attribution: `Photo by ${data.user?.name || 'Unknown'} on Unsplash`,
       type: 'unsplash',
+      authorLink: data.user?.links?.html || '',
     };
-  } catch {
+  } catch (err) {
+    console.log(`  ⚠️ Unsplash fetch error: ${err.message}`);
     return null;
   }
 }

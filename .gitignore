@@ -9,3 +9,5 @@ src/update-captions.js
 .DS_Store
 .image-tracker.json
 .image-hashes.json
+images/*.png
+images/*.html

@@ -1,0 +1,43 @@
+name: Tip Card Poster
+
+on:
+  schedule:
+    # 매일 11:00 KST (02:00 UTC) — 오전 두 번째 포스트를 팁카드로
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      topic:
+        description: '업종 (카페/인테리어/뷰티/패션)'
+        required: false
+        default: ''
+
+jobs:
+  tip:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install chromium
+
+      - name: Generate tip card
+        run: |
+          TOPIC="${{ github.event.inputs.topic || '' }}"
+          if [ -n "$TOPIC" ]; then
+            node scripts/tip-poster.mjs --topic "$TOPIC"
+          else
+            node scripts/tip-poster.mjs
+          fi
+        env:
+          UNSPLASH_ACCESS_KEY: ${{ secrets.UNSPLASH_ACCESS_KEY }}
+          INSTAGRAM_ACCOUNTS: ${{ secrets.INSTAGRAM_ACCOUNTS }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}

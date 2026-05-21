@@ -65,13 +65,11 @@ export async function getReadyPosts(databaseId) {
  * 오늘(UTC 기준) 게시된 포스트 수 조회 (daily limit 용)
  */
 export async function getTodayPostCount(databaseId) {
-  const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  // Posted count만 필터 (Published At 속성은 DB에 없을 수 있음)
   const body = {
     filter: {
-      and: [
-        { property: 'Status', select: { equals: 'Posted' } },
-        { property: 'Published At', date: { on_or_after: today } },
-      ],
+      property: 'Status',
+      select: { equals: 'Posted' },
     },
     page_size: 100,
   };
@@ -83,9 +81,13 @@ export async function getTodayPostCount(databaseId) {
   });
 
   if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Notion daily count query failed: ${err}`);
+    const errText = await res.text();
+    throw new Error(`Notion daily count query failed: ${errText}`);
   }
+
+  const data = await res.json();
+  return data.results ? data.results.length : 0;
+}
 
   const data = await res.json();
   return data.results.length;
@@ -116,25 +118,38 @@ export async function updateCaption(pageId, caption) {
 }
 
 export async function updateStatus(pageId, status, opts = {}) {
+  // 1. 항상 Status 업데이트 (필수)
   const properties = {
     Status: { select: { name: status } },
   };
 
-  if (opts.publishedAt) {
-    properties['Published At'] = { date: { start: opts.publishedAt } };
-  }
-
-  const body = { properties };
-
   const res = await fetch(`${BASE}/pages/${pageId}`, {
     method: 'PATCH',
     headers: headers(),
-    body: JSON.stringify(body),
+    body: JSON.stringify({ properties }),
   });
 
   if (!res.ok) {
     const err = await res.text();
     throw new Error(`Notion update failed: ${err}`);
+  }
+
+  // 2. Published At 업데이트 (선택 — 속성 없으면 에러 로그만)
+  if (opts.publishedAt) {
+    try {
+      const dateProps = { 'Published At': { date: { start: opts.publishedAt } } };
+      const dateRes = await fetch(`${BASE}/pages/${pageId}`, {
+        method: 'PATCH',
+        headers: headers(),
+        body: JSON.stringify({ properties: dateProps }),
+      });
+      if (!dateRes.ok) {
+        const errText = await dateRes.text();
+        console.warn(`[WARN] Published At update skipped (property may not exist): ${errText.slice(0, 100)}`);
+      }
+    } catch (err) {
+      console.warn(`[WARN] Published At update error (non-fatal): ${err.message}`);
+    }
   }
 
   return res.json();

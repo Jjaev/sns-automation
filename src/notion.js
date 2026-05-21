@@ -51,6 +51,9 @@ export async function getReadyPosts(databaseId) {
     name: page.properties.Name?.title?.[0]?.plain_text || '',
     caption: page.properties.Caption?.rich_text?.[0]?.plain_text || '',
     imageUrl: page.properties['Image URL']?.url || '',
+    videoUrl: page.properties['Video URL']?.url || '',
+    mediaType: page.properties['Media Type']?.select?.name || 'IMAGE',
+    shareToFeed: page.properties['Share to Feed']?.checkbox !== false,
     platform: page.properties.Platform?.select?.name || 'Instagram',
     account: page.properties.Account?.select?.name || '',
     scheduledAt: page.properties['Scheduled At']?.date?.start || '',
@@ -154,11 +157,14 @@ export async function updateStatus(pageId, status, opts = {}) {
 /**
  * 새 페이지 생성 (수동 등록용, account 지원)
  */
-export async function createPost({ name, caption, imageUrl, platform = 'Instagram', account = '', scheduledAt, status = 'Idea' }) {
+export async function createPost({ name, caption, imageUrl, videoUrl, mediaType, shareToFeed, platform = 'Instagram', account = '', scheduledAt, status = 'Idea' }) {
   const properties = {
     Name: { title: [{ text: { content: name } }] },
     Caption: { rich_text: [{ text: { content: caption || '' } }] },
     'Image URL': { url: imageUrl || null },
+    'Video URL': { url: videoUrl || null },
+    'Media Type': mediaType ? { select: { name: mediaType } } : undefined,
+    'Share to Feed': shareToFeed !== undefined ? { checkbox: shareToFeed } : undefined,
     Platform: { select: { name: platform } },
     Account: account ? { select: { name: account } } : undefined,
     Status: { select: { name: status } },

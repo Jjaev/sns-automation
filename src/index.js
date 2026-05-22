@@ -189,15 +189,16 @@ export async function run() {
       await updateStatus(post.id, 'Posted', { publishedAt: new Date().toISOString() });
       log(`✅ Status updated: "${post.name}" → Posted`);
 
-      // 텔레그램 알림 (릴스만 개별 알림, 일반 포스트는 wrapup에서 한번에)
+      // 텔레그램 알림 (릴스만 — 무엇+왜+측정)
       if (post.mediaType === 'REELS') {
         const accountName = post.account || 'studio_sjw';
         const tgMsg = [
-          `🎬 릴스 발행 완료!`,
-          `   계정: @${accountName}`,
-          `   제목: ${post.name}`,
-          `   시간: ${new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}`,
-          `   릴스 탭 + 피드 동시 게시`,
+          `🎬 릴스 업로드됨`,
+          `   @${accountName} · ${post.name}`,
+          ``,
+          `   💡 왜: 릴스 = 유일한 유기적 도달 채널`,
+          `   📊 측정: 24h 후 도달률 & 프로필 방문자 수`,
+          `   🎯 목표: 도달 500+ → 지속 제작`,
         ].join('\n');
         sendTelegram(tgMsg, { silent: true });
       }

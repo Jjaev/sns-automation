@@ -7,6 +7,7 @@ import { generateCaption, generateAdCopy } from './caption.js';
 import { publishPhoto, publishReel } from './instagram.js';
 import { pickImage, getImageStats } from './images.js';
 import { fullImageValidation } from './image-validator.js';
+import { sendTelegram } from './telegram.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const LOG_DIR = path.join(__dirname, '..', 'logs');
@@ -187,6 +188,18 @@ export async function run() {
       log(`✅ Published! Media ID: ${result}`);
       await updateStatus(post.id, 'Posted', { publishedAt: new Date().toISOString() });
       log(`✅ Status updated: "${post.name}" → Posted`);
+
+      // 텔레그램 알림
+      const mediaType = post.mediaType === 'REELS' ? '🎬 릴스' : '📷 포스트';
+      const accountName = post.account || 'studio_sjw';
+      const tgMsg = [
+        `✅ ${mediaType} 발행 완료`,
+        `   계정: @${accountName}`,
+        `   제목: ${post.name}`,
+        `   시간: ${new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}`,
+        post.mediaType === 'REELS' ? `   📱 릴스 탭 + 피드 동시 게시` : '',
+      ].filter(Boolean).join('\n');
+      sendTelegram(tgMsg, { silent: true });
 
       // 게시 간격 (여러 개 연속 업로드 방지)
       if (POST_DELAY_MINUTES > 0) {

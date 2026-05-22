@@ -2,7 +2,7 @@ name: Metrics Check
 
 on:
   schedule:
-    - cron: '0 12 * * *'  # 21:00 KST (매일 저녁, 24h 데이터 확보)
+    - cron: '0 1 * * *'   # 10:00 KST — 전날 릴스 24h 데이터 확보
   workflow_dispatch:        # 수동 실행 가능
 
 jobs:

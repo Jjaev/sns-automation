@@ -121,21 +121,42 @@ export async function publishReel(post) {
 
   const containerId = createData.id;
 
-  // Step 2: Publish
-  const publishUrl = `${GRAPH_BASE}/${businessId}/media_publish`;
-  const publishParams = new URLSearchParams({
-    creation_id: containerId,
-    access_token: accessToken,
-  });
+  // Step 2: Retry publish until ready (IG needs time to process video)
+  const MAX_RETRIES = 6;
+  const RETRY_DELAY = 10000; // 10초
 
-  const publishRes = await fetch(`${publishUrl}?${publishParams}`, { method: 'POST' });
-  const publishData = await publishRes.json();
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    // Wait before trying (first attempt also waits - IG needs processing time)
+    if (attempt > 1) {
+      console.log(`  ⏳ Waiting ${RETRY_DELAY/1000}s for video processing (attempt ${attempt}/${MAX_RETRIES})...`);
+    }
+    await new Promise(r => setTimeout(r, attempt === 1 ? 5000 : RETRY_DELAY));
 
-  if (publishData.error) {
-    throw new Error(`Instagram Reels publish failed: ${publishData.error.message}`);
+    const publishUrl = `${GRAPH_BASE}/${businessId}/media_publish`;
+    const publishParams = new URLSearchParams({
+      creation_id: containerId,
+      access_token: accessToken,
+    });
+
+    const publishRes = await fetch(`${publishUrl}?${publishParams}`, { method: 'POST' });
+    const publishData = await publishRes.json();
+
+    if (!publishData.error) {
+      return publishData.id; // ✅ 성공
+    }
+
+    const errMsg = publishData.error.message;
+
+    // "Media ID is not available" = 아직 처리 중 → 재시도
+    if (errMsg.includes('Media ID is not available') || errMsg.includes('processing')) {
+      continue;
+    }
+
+    // 다른 에러 = 실패
+    throw new Error(`Instagram Reels publish failed: ${errMsg}`);
   }
 
-  return publishData.id;
+  throw new Error(`Instagram Reels publish failed after ${MAX_RETRIES} retries: video processing timeout`);
 }
 
 export async function getInstagramBusinessId(facebookPageId, accountName) {

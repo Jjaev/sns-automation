@@ -14,6 +14,7 @@
 //   🎯 오늘 업로드: 12:00 / 18:00
 
 import { sendTelegram } from '../src/telegram.js';
+import { saveMissionMessageId } from './telegram-listener.js';
 
 // ─── 타겟 설정 ───────────────────────────────────────
 const TARGETS = [
@@ -178,8 +179,14 @@ async function main() {
   const message = buildMorningMessage(todaysTargets, schedule);
 
   // 발송
-  const ok = await sendTelegram(message);
-  console.log(ok ? '[Engagement Bot] ✅ Sent' : '[Engagement Bot] ❌ Failed');
+  const result = await sendTelegram(message);
+  if (result) {
+    console.log('[Engagement Bot] ✅ Sent');
+    // 메시지 ID 저장 (답장 확인용)
+    saveMissionMessageId(result.message_id);
+  } else {
+    console.log('[Engagement Bot] ❌ Failed');
+  }
   console.log(message);
 }
 

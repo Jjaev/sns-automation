@@ -4,6 +4,7 @@
 // 텔레그램으로 발송
 
 import { sendTelegram } from '../src/telegram.js';
+import { checkTelegramReplies, isTodayMissionCompleted } from './telegram-listener.js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -142,7 +143,7 @@ async function getTodayStats() {
 }
 
 // ─── 메시지 생성 ─────────────────────────────────────
-function buildWrapupMessage(stats, streak) {
+async function buildWrapupMessage(stats, streak) {
   const today = new Date().toLocaleDateString('ko-KR', {
     month: 'long', day: 'numeric', weekday: 'short'
   });
@@ -181,6 +182,31 @@ function buildWrapupMessage(stats, streak) {
     msg += `📅 내일: 등록된 게시물 없음\n\n`;
   }
 
+  // 상호작용 미션 완료 여부
+  const isCompleted = isTodayMissionCompleted();
+  if (isCompleted) {
+    msg += `✅ 오늘 미션: 완료! 👍\n\n`;
+  } else {
+    // 답장 확인 시도
+    const state = loadTelegramState();
+    if (state?.lastMissionMsgId) {
+      const reply = await checkTelegramReplies(state.lastMissionMsgId);
+      if (reply.completed) {
+        // 상태 업데이트
+        const s = loadTelegramState();
+        s.missionCompleted = true;
+        saveTelegramState(s);
+        msg += `✅ 오늘 미션: 완료! 👍\n\n`;
+      } else if (reply.reply) {
+        msg += `❓ 미션 답장 감지: "${reply.reply}" — 완료로 인식 못 함\n\n`;
+      } else {
+        msg += `⏳ 오늘 미션: 아직 답장 없음\n\n`;
+      }
+    } else {
+      msg += `⏳ 오늘 미션: 확인 불가\n\n`;
+    }
+  }
+
   // 내일 할 일
   msg += `📍 내일 할 일\n`;
   msg += `   □ 아침 상호작용 가이드 확인 (09:00)\n`;
@@ -189,6 +215,20 @@ function buildWrapupMessage(stats, streak) {
   msg += `💪 오늘도 수고했어! 내일도 화이팅 🔥`;
 
   return msg;
+}
+
+// ─── 텔레그램 상태 헬퍼 (로컬 임포트 대신) ────────
+function loadTelegramState() {
+  const f = path.join(__dirname, '..', 'data', 'telegram-state.json');
+  try {
+    if (fs.existsSync(f)) return JSON.parse(fs.readFileSync(f, 'utf-8'));
+  } catch (e) { /* ignore */ }
+  return null;
+}
+function saveTelegramState(state) {
+  const dir = path.join(__dirname, '..', 'data');
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'telegram-state.json'), JSON.stringify(state, null, 2));
 }
 
 // ─── 메인 ─────────────────────────────────────────────
@@ -202,7 +242,7 @@ async function main() {
   const streak = updateStreak(stats.posted > 0);
 
   // 메시지 빌드
-  const message = buildWrapupMessage(stats, streak);
+  const message = await buildWrapupMessage(stats, streak);
 
   // 발송
   const ok = await sendTelegram(message);

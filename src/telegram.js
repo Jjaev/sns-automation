@@ -10,7 +10,7 @@ const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID || '';
  * @param {string} message - 보낼 메시지
  * @param {object} [opts] - 옵션
  * @param {boolean} [opts.silent=false] - 알림음 없이 발송
- * @returns {Promise<boolean>} 성공 여부
+ * @returns {Promise<object|false>} { ok, message_id } 또는 실패시 false
  */
 export async function sendTelegram(message, opts = {}) {
   if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
@@ -38,7 +38,7 @@ export async function sendTelegram(message, opts = {}) {
       console.error(`[Telegram] FAIL: ${data.description}`);
       return false;
     }
-    return true;
+    return { ok: true, message_id: data.result.message_id };
   } catch (e) {
     console.error(`[Telegram] ERROR: ${e.message}`);
     return false;

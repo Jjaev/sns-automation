@@ -2,7 +2,7 @@ name: SNS Automation Schedule
 
 on:
   schedule:
-    - cron: '0 0,3,6,9 * * *'  # 09:00 / 12:00 / 15:00 / 18:00 KST (UTC +9)
+    - cron: '0 0,3,6 * * *'  # 09:00 / 12:00 / 15:00 KST (UTC +9) — daily limit 2, 3회로 중복 보장
   workflow_dispatch:              # 수동 실행 가능
 
 jobs:

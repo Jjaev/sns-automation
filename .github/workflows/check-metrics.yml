@@ -1,0 +1,33 @@
+name: Metrics Check
+
+on:
+  schedule:
+    - cron: '0 12 * * *'  # 21:00 KST (매일 저녁, 24h 데이터 확보)
+  workflow_dispatch:        # 수동 실행 가능
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Fetch latest metrics
+        run: bash scripts/check-metrics.sh
+        env:
+          INSTAGRAM_ACCOUNTS: ${{ secrets.INSTAGRAM_ACCOUNTS }}
+
+      - name: Commit metrics
+        run: |
+          git config user.name "frank"
+          git config user.email "frank@bot"
+          git add metrics/
+          git diff --cached --quiet || git commit -m "metrics: $(date -u +%Y-%m-%d)"
+          git push

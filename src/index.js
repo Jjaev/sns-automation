@@ -189,17 +189,18 @@ export async function run() {
       await updateStatus(post.id, 'Posted', { publishedAt: new Date().toISOString() });
       log(`✅ Status updated: "${post.name}" → Posted`);
 
-      // 텔레그램 알림
-      const mediaType = post.mediaType === 'REELS' ? '🎬 릴스' : '📷 포스트';
-      const accountName = post.account || 'studio_sjw';
-      const tgMsg = [
-        `✅ ${mediaType} 발행 완료`,
-        `   계정: @${accountName}`,
-        `   제목: ${post.name}`,
-        `   시간: ${new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}`,
-        post.mediaType === 'REELS' ? `   📱 릴스 탭 + 피드 동시 게시` : '',
-      ].filter(Boolean).join('\n');
-      sendTelegram(tgMsg, { silent: true });
+      // 텔레그램 알림 (릴스만 개별 알림, 일반 포스트는 wrapup에서 한번에)
+      if (post.mediaType === 'REELS') {
+        const accountName = post.account || 'studio_sjw';
+        const tgMsg = [
+          `🎬 릴스 발행 완료!`,
+          `   계정: @${accountName}`,
+          `   제목: ${post.name}`,
+          `   시간: ${new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}`,
+          `   릴스 탭 + 피드 동시 게시`,
+        ].join('\n');
+        sendTelegram(tgMsg, { silent: true });
+      }
 
       // 게시 간격 (여러 개 연속 업로드 방지)
       if (POST_DELAY_MINUTES > 0) {

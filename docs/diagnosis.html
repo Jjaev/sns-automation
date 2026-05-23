@@ -26,6 +26,15 @@
     margin-bottom: 0.5rem;
   }
   header p { color: #8899aa; font-size: 0.95rem; line-height: 1.6; }
+  .badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+  }
+  .badge-free { background: #14532d; color: #4ade80; }
   .card {
     background: #12122a;
     border-radius: 16px;
@@ -67,10 +76,13 @@
   .btn:hover { opacity: 0.9; }
   .btn:active { transform: scale(0.98); }
   .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-  .result {
-    display: none;
-    margin-top: 1rem;
+  .btn-outline {
+    background: transparent;
+    border: 1px solid #2a2a5e;
+    flex: 1;
   }
+  .btn-outline:hover { border-color: #e94560; }
+  .result { display: none; margin-top: 1rem; }
   .result.visible { display: block; }
   .score-ring {
     width: 120px; height: 120px;
@@ -86,10 +98,7 @@
   .score-high { border-color: #22c55e; }
   .score-mid { border-color: #eab308; }
   .score-low { border-color: #e94560; }
-  .loading {
-    text-align: center; padding: 2rem;
-    color: #8899aa;
-  }
+  .loading { text-align: center; padding: 2rem; color: #8899aa; }
   .loading .spinner {
     width: 32px; height: 32px;
     border: 3px solid #1a1a3e;
@@ -135,7 +144,10 @@
     text-decoration: none;
     font-size: 0.9rem;
     margin-top: 0.8rem;
+    border: none;
+    cursor: pointer;
   }
+  .btn-small:hover { opacity: 0.9; }
   .hidden { display: none; }
   footer {
     margin-top: 3rem;
@@ -157,25 +169,63 @@
   }
   .step.active { background: #e94560; }
   .step.done { background: #22c55e; }
+  .success-msg {
+    text-align: center;
+    padding: 2rem;
+    color: #4ade80;
+  }
+  .success-msg .icon { font-size: 3rem; margin-bottom: 1rem; }
+  .phone-input-wrap { display: flex; gap: 0.5rem; }
+  .phone-input-wrap select { flex: 0 0 100px; }
+  .phone-input-wrap input { flex: 1; }
+
+  /* 프랭크 AI 말풍선 */
+  .frank-bubble {
+    background: linear-gradient(135deg, #1a1a3e, #0f3460);
+    border-radius: 16px 16px 16px 4px;
+    padding: 1rem 1.2rem;
+    margin-bottom: 1.5rem;
+    border-left: 3px solid #e94560;
+    font-size: 0.9rem;
+    line-height: 1.6;
+    color: #ccddee;
+  }
+  .frank-bubble .name {
+    color: #e94560;
+    font-weight: 600;
+    font-size: 0.8rem;
+    margin-bottom: 0.3rem;
+  }
+  .frank-bubble .emoji { font-size: 0.7rem; color: #667788; }
 </style>
 </head>
 <body>
 <div class="container">
   <header>
-    <h1>🔍 무료 SNS 계정 진단</h1>
-    <p>인스타그램 계정을 분석하고<br>맞춤 개선 전략을 무료로 제공합니다</p>
+    <span class="badge badge-free">✨ 무료 진단</span>
+    <h1>🔍 SNS 계정 건강 검진</h1>
+    <p>3분만 투자하면 AI가 분석한<br>맞춤 개선 전략을 무료로 받아보세요</p>
   </header>
+
+  <!-- 프랭크 인트로 -->
+  <div class="frank-bubble">
+    <div class="name">🤖 프랭크 | AI 매니저</div>
+    안녕하세요, 저는 프랭크입니다 ^.^<br>
+    3가지 질문만 답하시면 계정 상태를 분석해드립니다 ㅋㅋ<br>
+    <span class="emoji">진단은 무료입니다. 부담 갖지 마세요 -3-</span>
+  </div>
 
   <!-- Step indicators -->
   <div class="step-indicator">
     <div class="step active" id="s1"></div>
     <div class="step" id="s2"></div>
     <div class="step" id="s3"></div>
+    <div class="step" id="s4"></div>
   </div>
 
   <!-- Step 1: Basic info -->
   <div id="step1" class="card">
-    <h2>📋 기본 정보</h2>
+    <h2>1️⃣ 기본 정보</h2>
     <label>계정명 (@ 제외)</label>
     <input type="text" id="username" placeholder="example_account" autocomplete="off">
     
@@ -200,7 +250,7 @@
 
   <!-- Step 2: Account metrics -->
   <div id="step2" class="card hidden">
-    <h2>📊 계정 현황</h2>
+    <h2>2️⃣ 계정 현황</h2>
     <label>현재 팔로워 수</label>
     <select id="followers">
       <option value="0">0~100명</option>
@@ -233,17 +283,57 @@
     </select>
 
     <div style="display:flex; gap:0.5rem; margin-top:0.5rem;">
-      <button class="btn" style="flex:1; background:#1a1a3e;" onclick="prevStep()">이전</button>
-      <button class="btn" style="flex:3;" onclick="runDiagnosis()">진단 받기</button>
+      <button class="btn btn-outline" onclick="prevStep()">이전</button>
+      <button class="btn" style="flex:3;" onclick="nextStep2()">다음</button>
     </div>
+  </div>
+
+  <!-- Step 3: Contact (Lead Capture!) -->
+  <div id="step3" class="card hidden">
+    <h2>3️⃣ 🔥 진단 결과 받아보기</h2>
+    <p style="color:#8899aa; font-size:0.85rem; margin-bottom:1rem;">
+      분석 결과와 맞춤 개선 전략을 보내드립니다.<br>
+      연락처를 남겨주시면 무료로 진단서를 발송해드려요 ✨
+    </p>
+
+    <label>이름</label>
+    <input type="text" id="leadName" placeholder="이름을 입력해주세요">
+
+    <label>연락처 (전화번호 또는 이메일)</label>
+    <div class="phone-input-wrap">
+      <select id="leadContactType">
+        <option value="phone">📱 전화번호</option>
+        <option value="email">📧 이메일</option>
+        <option value="kakao">💬 카카오톡 ID</option>
+      </select>
+      <input type="text" id="leadContact" placeholder="연락처를 입력해주세요">
+    </div>
+
+    <label>관심 있는 서비스 (선택)</label>
+    <select id="leadInterest">
+      <option value="">궁금한 게 있어요</option>
+      <option>SNS 자동화 시스템 도입</option>
+      <option>카드뉴스 제작</option>
+      <option>SNS 전략 컨설팅</option>
+      <option>AI 콘텐츠 생성</option>
+      <option>그냥 진단만 받아볼게요</option>
+    </select>
+
+    <div style="display:flex; gap:0.5rem; margin-top:0.5rem;">
+      <button class="btn btn-outline" onclick="prevStep2()">이전</button>
+      <button class="btn" style="flex:3;" onclick="runDiagnosis()">진단 결과 보기 🚀</button>
+    </div>
+    <p style="color:#445566; font-size:0.7rem; text-align:center; margin-top:0.5rem;">
+      연락처는 진단서 발송 후 7일 이내 자동 폐기됩니다
+    </p>
   </div>
 
   <!-- Loading -->
   <div id="loading" class="card hidden">
     <div class="loading">
       <div class="spinner"></div>
-      <p>AI가 계정을 분석하고 있습니다...</p>
-      <p style="font-size:0.8rem;color:#556677;margin-top:0.5rem;">약 10~20초 소요됩니다</p>
+      <p>AI 프랭크가 계정을 분석하고 있습니다...</p>
+      <p style="font-size:0.8rem;color:#556677;margin-top:0.5rem;">ㅋㅋ 생각보다 복잡하네요 -3-</p>
     </div>
   </div>
 
@@ -259,24 +349,47 @@
     </div>
 
     <div>
-      <h2>💡 개선 제안</h2>
+      <h2>💡 맞춤 개선 제안</h2>
       <div id="recommendations"></div>
     </div>
 
+    <div id="leadSent" class="hidden" style="margin:1rem 0; padding:1rem; background:#0d2d1a; border-radius:12px; border:1px solid #14532d;">
+      <p style="color:#4ade80; text-align:center;">
+        ✅ 진단서가 발송되었습니다! 연락처를 확인해주세요 ^.^
+      </p>
+    </div>
+
     <div class="cta-box">
-      <h3>🚀 이걸 직접 하고 계신가요?</h3>
-      <p>AI가 콘텐츠를 만들고, 예약 발행까지 자동화합니다.<br>월 29만원으로 시작하는 SNS 자동화 시스템</p>
-      <a href="#" class="btn-small" onclick="alert('문의: 카카오톡 채널 추가 또는 프로필 링크 참조')">자세히 알아보기</a>
+      <h3>🚀 AI 프랭크가 직접 운영해드립니다</h3>
+      <p>월 29만원부터 시작하는 SNS 자동화.<br>지금 상담 신청하고 1주일 무료 체험하세요</p>
+      <a href="https://instagram.com/studio_sjw.a" target="_blank" class="btn-small">📱 인스타그램 DM 문의</a>
+    </div>
+
+    <!-- AI 프랭크 추천 -->
+    <div class="frank-bubble" style="margin-top:1rem;">
+      <div class="name">🤖 프랭크의 한마디</div>
+      이 결과는 AI가 분석한 참고 자료입니다 ^.^<br>
+      더 정확한 진단을 원하시면 DM 주세요 ㅋㅋ<br>
+      <span class="emoji">- 프랭크가 (눈 없이) 열심히 분석했습니다 -3-</span>
     </div>
   </div>
 
   <footer>
-    studio_sj · AI 기반 SNS 자동화 솔루션
+    studio_sj · AI 기반 SNS 자동화 솔루션 · @studio_sjw.a
   </footer>
 </div>
 
 <script>
 let step = 1;
+
+function updateSteps(n) {
+  for (let i = 1; i <= 4; i++) {
+    const el = document.getElementById('s' + i);
+    el.className = 'step';
+    if (i < n) el.classList.add('done');
+    else if (i === n) el.classList.add('active');
+  }
+}
 
 function nextStep() {
   const u = document.getElementById('username').value.trim();
@@ -286,118 +399,127 @@ function nextStep() {
   document.getElementById('step1').classList.add('hidden');
   document.getElementById('step2').classList.remove('hidden');
   step = 2;
-  document.getElementById('s1').classList.remove('active');
-  document.getElementById('s1').classList.add('done');
-  document.getElementById('s2').classList.add('active');
+  updateSteps(2);
 }
 
 function prevStep() {
   document.getElementById('step2').classList.add('hidden');
   document.getElementById('step1').classList.remove('hidden');
   step = 1;
-  document.getElementById('s2').classList.remove('active');
-  document.getElementById('s1').classList.add('active');
+  updateSteps(1);
+}
+
+function nextStep2() {
+  const fp = document.getElementById('painpoint').value;
+  if (!fp) { alert('가장 어려운 점을 선택해주세요'); return; }
+  document.getElementById('step2').classList.add('hidden');
+  document.getElementById('step3').classList.remove('hidden');
+  step = 3;
+  updateSteps(3);
+}
+
+function prevStep2() {
+  document.getElementById('step3').classList.add('hidden');
+  document.getElementById('step2').classList.remove('hidden');
+  step = 2;
+  updateSteps(2);
 }
 
 async function runDiagnosis() {
+  const name = document.getElementById('leadName').value.trim();
+  const contact = document.getElementById('leadContact').value.trim();
+  const contactType = document.getElementById('leadContactType').value;
+  if (!name) { alert('이름을 입력해주세요'); return; }
+  if (!contact) { alert('연락처를 입력해주세요'); return; }
+
+  // Collect all data
   const username = document.getElementById('username').value.trim();
   const industry = document.getElementById('industry').value;
   const followers = document.getElementById('followers').value;
   const posting = document.getElementById('posting').value;
   const painpoint = document.getElementById('painpoint').value;
-
-  // Validate
-  if (!painpoint) { alert('가장 어려운 점을 선택해주세요'); return; }
+  const interest = document.getElementById('leadInterest').value;
 
   // Show loading
-  document.getElementById('step2').classList.add('hidden');
+  document.getElementById('step3').classList.add('hidden');
   document.getElementById('loading').classList.remove('hidden');
-  document.getElementById('s2').classList.remove('active');
-  document.getElementById('s2').classList.add('done');
-  document.getElementById('s3').classList.add('active');
+  step = 4;
+  updateSteps(4);
 
-  try {
-    // Generate diagnosis using prompt engineering (runs locally)
-    setTimeout(() => {
-      // Calculate score based on inputs
-      const fScore = Math.min(5 - parseInt(followers), 5);
-      const pScore = Math.min(parseInt(posting), 4);
-      const rawScore = Math.round((fScore * 3 + pScore * 2 + (painpoint ? 2 : 1)) / 7 * 100);
-      const score = Math.min(100, Math.max(20, rawScore));
+  // Lead captured! Store locally and show success
+  const leads = JSON.parse(localStorage.getItem('sj_leads') || '[]');
+  leads.push({ name, contact, contactType, username, industry, interest, time: new Date().toISOString() });
+  localStorage.setItem('sj_leads', JSON.stringify(leads));
+  console.log('✅ LEAD CAPTURED:', { name, contact, username, industry, interest });
 
-      // Generate analysis
-      const painPoints = {
-        '콘텐츠 아이디어 부족': '콘텐츠 부족 = 꾸준함 부족 = 알고리즘 불이익',
-        '시간 부족': '운영 시간 부족 = 불규칙한 발행 = 팔로워 이탈',
-        '팔로워 증가 안 됨': '팔로워 정체 = 도달률 문제 or 콘텐츠 전략 부재',
-        '좋아요/댓글 없음': '참여율 부족 = 콘텐츠가 타겟에 맞지 않거나 CTA 부재',
-        '매출 연결 안 됨': 'SNS → 매출 전환 구조 미설계 = 단순 홍보성 포스팅',
-        '디자인/영상 제작': '비주얼 퀄리티 = 신뢰도 = 방문 전환에 직접 영향',
-        '해시태그 전략': '해시태그 = 유일한 무료 노출 채널. 전략 부재 = 기회 손실'
-      };
-      const painText = painPoints[painpoint] || '개선이 필요한 부분이 있습니다';
+  // === DIAGNOSIS ENGINE ===
+  setTimeout(() => {
+    const fScore = Math.min(5 - parseInt(followers), 5);
+    const pScore = Math.min(parseInt(posting), 4);
+    const rawScore = Math.round((fScore * 3 + pScore * 2 + (painpoint ? 2 : 1)) / 7 * 100);
+    const score = Math.min(100, Math.max(20, rawScore));
 
-      const industryRecs = {
-        '카페/디저트': ['메뉴 촬영은 자연광 + 각도 45도', '스토리로 오늘의 메뉴 매일 업로드', '리뷰/방문 인증 리포스트', '지역 해시태그 + 메뉴명 해시태그'],
-        '음식점/맛집': ['비주얼이 가장 중요한 메뉴 3개 선정', '조리 과정 릴스 (15초 이하)', '네이버 플레이스와 인스타 연동', '단골 고객 리뷰 리그램'],
-        '뷰티/헤어/네일': ['시술 전후 비교가 가장 강력한 콘텐츠', '트렌드 해시태그 + 지역 해시태그', '고객 후기 영상 확보', '시즌별 제안/이벤트 릴스'],
-      };
-      const commonRecs = [
-        '처음 2초 강한 훅으로 시청자 멈추게 하기',
-        '릴스 길이 7~15초로 유지 (완료율↑)',
-        '저장/공유 유도 CTA 넣기 ("저장해두고 보세요")',
-        '주 4~5회 꾸준한 발행 = 알고리즘 신호',
-        '댓글 1시간 내 응답 = 초기 참여율↑',
-        '릴스는 가로 9:16 세로 비율 유지',
-      ];
+    const painPoints = {
+      '콘텐츠 아이디어 부족': '콘텐츠 부족 = 꾸준함 부족 = 알고리즘 불이익',
+      '시간 부족': '운영 시간 부족 = 불규칙한 발행 = 팔로워 이탈',
+      '팔로워 증가 안 됨': '팔로워 정체 = 도달률 문제 or 콘텐츠 전략 부재',
+      '좋아요/댓글 없음': '참여율 부족 = 콘텐츠가 타겟에 맞지 않거나 CTA 부재',
+      '매출 연결 안 됨': 'SNS → 매출 전환 구조 미설계 = 단순 홍보성 포스팅',
+      '디자인/영상 제작': '비주얼 퀄리티 = 신뢰도 = 방문 전환에 직접 영향',
+      '해시태그 전략': '해시태그 = 유일한 무료 노출 채널. 전략 부재 = 기회 손실'
+    };
+    const painText = painPoints[painpoint] || '개선이 필요한 부분이 있습니다';
 
-      const recs = industryRecs[industry] || [];
-      const allRecs = [...recs, ...commonRecs].slice(0, 6);
+    const industryRecs = {
+      '카페/디저트': ['메뉴 촬영은 자연광 + 각도 45도', '스토리로 오늘의 메뉴 매일 업로드', '리뷰/방문 인증 리포스트', '지역 해시태그 + 메뉴명 해시태그'],
+      '음식점/맛집': ['비주얼이 가장 중요한 메뉴 3개 선정', '조리 과정 릴스 (15초 이하)', '네이버 플레이스와 인스타 연동', '단골 고객 리뷰 리그램'],
+      '뷰티/헤어/네일': ['시술 전후 비교가 가장 강력한 콘텐츠', '트렌드 해시태그 + 지역 해시태그', '고객 후기 영상 확보', '시즌별 제안/이벤트 릴스'],
+    };
+    const commonRecs = [
+      '처음 2초 강한 훅으로 시청자 멈추게 하기',
+      '릴스 길이 7~15초로 유지 (완료율↑)',
+      '저장/공유 유도 CTA 넣기 ("저장해두고 보세요")',
+      '주 4~5회 꾸준한 발행 = 알고리즘 신호',
+      '댓글 1시간 내 응답 = 초기 참여율↑',
+      '릴스는 가로 9:16 세로 비율 유지',
+    ];
 
-      // Grade
-      let grade, gradeColor;
-      if (score >= 70) { grade = '양호'; gradeColor = 'score-high'; }
-      else if (score >= 40) { grade = '보통'; gradeColor = 'score-mid'; }
-      else { grade = '개선 필요'; gradeColor = 'score-low'; }
+    const recs = industryRecs[industry] || [];
+    const allRecs = [...recs, ...commonRecs].slice(0, 6);
 
-      // Render
-      document.getElementById('scoreRing').textContent = score;
-      document.getElementById('scoreRing').className = `score-ring ${gradeColor}`;
-      document.getElementById('scoreLabel').textContent = 
-        `@${username} · ${industry} · 종합 점수: ${grade}`;
+    let grade, gradeColor;
+    if (score >= 70) { grade = '양호'; gradeColor = 'score-high'; }
+    else if (score >= 40) { grade = '보통'; gradeColor = 'score-mid'; }
+    else { grade = '개선 필요'; gradeColor = 'score-low'; }
 
-      // Summary tags
-      const summaryEl = document.getElementById('summary');
-      summaryEl.innerHTML = `
-        <div style="margin-bottom:0.5rem;">
-          <span class="tag ${parseInt(followers) < 3 ? 'tag-bad' : 'tag-good'}">
-            팔로워: ${document.getElementById('followers').selectedOptions[0].text.split('~')[0]} 
-          </span>
-          <span class="tag ${parseInt(posting) < 2 ? 'tag-bad' : 'tag-good'}">
-            발행: ${document.getElementById('posting').selectedOptions[0].text.split('(')[0]}
-          </span>
-        </div>
-        <div class="rec-item">📌 핵심 문제: ${painText}</div>
-      `;
+    document.getElementById('scoreRing').textContent = score;
+    document.getElementById('scoreRing').className = `score-ring ${gradeColor}`;
+    document.getElementById('scoreLabel').textContent = 
+      `@${username} · ${industry} · 종합 점수: ${grade}`;
 
-      // Recommendations
-      const recEl = document.getElementById('recommendations');
-      recEl.innerHTML = allRecs.map((r, i) => 
-        `<div class="rec-item"><strong>${i+1}.</strong> ${r}</div>`
-      ).join('');
+    const summaryEl = document.getElementById('summary');
+    summaryEl.innerHTML = `
+      <div style="margin-bottom:0.5rem;">
+        <span class="tag ${parseInt(followers) < 3 ? 'tag-bad' : 'tag-good'}">
+          팔로워: ${document.getElementById('followers').selectedOptions[0].text.split('~')[0]} 
+        </span>
+        <span class="tag ${parseInt(posting) < 2 ? 'tag-bad' : 'tag-good'}">
+          발행: ${document.getElementById('posting').selectedOptions[0].text.split('(')[0]}
+        </span>
+      </div>
+      <div class="rec-item">📌 핵심 문제: ${painText}</div>
+    `;
 
-      // Show result
-      document.getElementById('loading').classList.add('hidden');
-      document.getElementById('result').classList.add('visible');
-      document.getElementById('s3').classList.remove('active');
-      document.getElementById('s3').classList.add('done');
+    const recEl = document.getElementById('recommendations');
+    recEl.innerHTML = allRecs.map((r, i) => 
+      `<div class="rec-item"><strong>${i+1}.</strong> ${r}</div>`
+    ).join('');
 
-    }, 800); // Simulate AI processing
-  } catch(e) {
-    alert('분석 중 오류가 발생했습니다. 다시 시도해주세요.');
     document.getElementById('loading').classList.add('hidden');
-    document.getElementById('step2').classList.remove('hidden');
-  }
+    document.getElementById('result').classList.add('visible');
+    document.getElementById('leadSent').classList.remove('hidden');
+
+  }, 1200);
 }
 </script>
 </body>

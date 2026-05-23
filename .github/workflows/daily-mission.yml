@@ -1,0 +1,20 @@
+name: Frank Daily Mission
+
+on:
+  schedule:
+    - cron: '0 1 * * *'  # 10:00 KST (01:00 UTC)
+  workflow_dispatch:
+
+jobs:
+  mission:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --omit=dev
+      - run: node scripts/telegram-mission.js
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}

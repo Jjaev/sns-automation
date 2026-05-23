@@ -66,30 +66,59 @@ export async function getReadyPosts(databaseId) {
  */
 /**
  * 오늘(UTC 기준) 게시된 포스트 수 조회 (daily limit 용)
+ * Published At 속성이 DB에 있으면 그것으로 필터, 없으면 last_edited_time 폴백
  */
 export async function getTodayPostCount(databaseId) {
-  // Posted count만 필터 (Published At 속성은 DB에 없을 수 있음)
-  const body = {
+  const todayStart = new Date();
+  todayStart.setUTCHours(0, 0, 0, 0);
+
+  // 1차 시도: Published At 속성으로 필터
+  const body1 = {
     filter: {
-      property: 'Status',
-      select: { equals: 'Posted' },
+      and: [
+        { property: 'Status', select: { equals: 'Posted' } },
+        { property: 'Published At', date: { on_or_after: todayStart.toISOString() } },
+      ],
     },
     page_size: 100,
   };
 
-  const res = await fetch(`${BASE}/databases/${databaseId}/query`, {
+  const res1 = await fetch(`${BASE}/databases/${databaseId}/query`, {
     method: 'POST',
     headers: headers(),
-    body: JSON.stringify(body),
+    body: JSON.stringify(body1),
   });
 
-  if (!res.ok) {
-    const errText = await res.text();
+  if (res1.ok) {
+    const data = await res1.json();
+    if (data.results) return data.results.length;
+  }
+
+  // 2차 폴백: last_edited_time 기준 (Status가 오늘 Posted로 변경된 경우)
+  // Published At 속성이 DB에 없으면 이 방식으로 대체
+  const body2 = {
+    filter: {
+      and: [
+        { property: 'Status', select: { equals: 'Posted' } },
+        { timestamp: 'last_edited_time', last_edited_time: { on_or_after: todayStart.toISOString() } },
+      ],
+    },
+    page_size: 100,
+  };
+
+  const res2 = await fetch(`${BASE}/databases/${databaseId}/query`, {
+    method: 'POST',
+    headers: headers(),
+    body: JSON.stringify(body2),
+  });
+
+  if (!res2.ok) {
+    const errText = await res2.text();
     throw new Error(`Notion daily count query failed: ${errText}`);
   }
 
-  const data = await res.json();
-  return data.results ? data.results.length : 0;
+  const data2 = await res2.json();
+  return data2.results ? data2.results.length : 0;
 }
 
 /**

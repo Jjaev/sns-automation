@@ -1,0 +1,57 @@
+{
+  "algorithm": {
+    "strategy": "매일 최소 1개 활동 — 인플루언서는 쉬지 않는다",
+    "max_daily_replies": 2,
+    "min_interval_minutes": 180,
+    "same_account_cooldown_days": 3,
+    "optimal_hours_kst": [10, 20],
+    "session_dwell_seconds": 90,
+    "conversation_bonus": 1.5,
+    "reply_continuity_bonus": 1.3,
+    "variety_rule": "하루 2개 이상이면 다른 계정/다른 주제",
+    "terrain_rules": [
+      "답글 유도형(❓) 댓글 우선 선택",
+      "🔄 2차 대응 템플릿 있는 미션 가중치 +1.3",
+      "⏱️ 세션 체류 90초 이상 필수",
+      "최적 시간대(한국 10시/20시)에 발송 가중치 +1.3",
+      "일요일도 활동 — 쉬는 날 없음"
+    ]
+  },
+  "weekly": {
+    "mon": {
+      "type": "x_comment",
+      "label": "X 댓글 1개",
+      "note": "주초 활동 신호. 알고리즘이 주말 inactivity 감지 후 재평가하는 시점."
+    },
+    "tue": {
+      "type": "x_comment",
+      "label": "X 댓글 1개",
+      "note": "연속성 입증. 2일 연속 = 봇 아님 신호."
+    },
+    "wed": {
+      "type": "x_comment",
+      "label": "X 댓글 1개",
+      "note": "주중 피크 시간대 (한국밤=미국아침). 가장 높은 노출 기대."
+    },
+    "thu": {
+      "type": "ig_like",
+      "label": "오투잡 체크 + IG 좋아요",
+      "note": "오투잡 문의 확인 1순위. 없으면 IG @frank.ai_0_ 에서 가볍게 활동. X는 24시간 리셋."
+    },
+    "fri": {
+      "type": "x_comment",
+      "label": "X 댓글 1개",
+      "note": "주말 전 마지막 활동. 금요일 활동은 주말까지 알고리즘에 신호 남음."
+    },
+    "sat": {
+      "type": "gumroad_check",
+      "label": "Gumroad 확인",
+      "note": "X 쉼. 수익 체크만."
+    },
+    "sun": {
+      "type": "x_comment",
+      "label": "X 댓글 1개",
+      "note": "일요일도 활동. 매일 활동 = 성장 가속. 가벼운 주제 우선."
+    }
+  }
+}
